@@ -13,11 +13,13 @@ Flask API for roadside mechanic dispatch in Lucknow. Raw SQL against Neon Postgr
 cd ottomech
 python -m venv venv
 
+python -m venv venv
 # Windows
 venv\Scripts\activate
-
-# macOS / Linux
+# Linux / macOS
 source venv/bin/activate
+# Git Bash
+source venv/Scripts/activate
 
 pip install -r requirements.txt
 ```
