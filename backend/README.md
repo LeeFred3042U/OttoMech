@@ -10,8 +10,9 @@ Flask API for roadside mechanic dispatch in Lucknow. Raw SQL against Neon Postgr
 ## Setup
 
 ```bash
-cd ottomech
-python -m venv venv
+git clone https://github.com/LeeFred3042U/OttoMech.git
+
+cd ottomech/backend
 
 python -m venv venv
 # Windows
@@ -22,6 +23,9 @@ source venv/bin/activate
 source venv/Scripts/activate
 
 pip install -r requirements.txt
+
+python seed.py
+python app.py
 ```
 
 Ensure `.env` contains your Neon connection string:
