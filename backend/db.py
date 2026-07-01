@@ -32,7 +32,7 @@ CREATE TABLE users (
     date_created     TIMESTAMPTZ DEFAULT NOW(),
     status           VARCHAR(20) DEFAULT 'active',
     password_hash    TEXT,
-    phone_verified   BOOLEAN DEFAULT FALSE,
+    phone_verified   BOOLEAN DEFAULT TRUE,
     email_verified   BOOLEAN DEFAULT FALSE,
     last_login       TIMESTAMPTZ,
     two_fa_enabled   BOOLEAN DEFAULT FALSE,
@@ -63,7 +63,7 @@ CREATE TABLE mechanics (
     date_created     TIMESTAMPTZ DEFAULT NOW(),
     status           VARCHAR(20) DEFAULT 'active',
     password_hash    TEXT,
-    phone_verified   BOOLEAN DEFAULT FALSE,
+    phone_verified   BOOLEAN DEFAULT TRUE,
     email_verified   BOOLEAN DEFAULT FALSE,
     last_login       TIMESTAMPTZ,
     two_fa_enabled   BOOLEAN DEFAULT FALSE,
@@ -73,7 +73,7 @@ CREATE TABLE mechanics (
 CREATE INDEX idx_mechanics_location ON mechanics USING GIST(location);
 
 CREATE TABLE otp_store (
-    phone        VARCHAR(20) PRIMARY KEY,
+    email        VARCHAR(255) PRIMARY KEY,
     otp_code     CHAR(6) NOT NULL,
     purpose      VARCHAR(20) DEFAULT 'login'
                  CHECK (purpose IN ('registration', 'login')),

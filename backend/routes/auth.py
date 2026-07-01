@@ -1,20 +1,23 @@
 # curl examples:
 # curl -X POST http://localhost:5000/auth/register/user \
 #   -H "Content-Type: application/json" \
-#   -d '{"first_name":"Priya","last_name":"Sharma","phone_number":"+919876543210","country":"IN"}'
+#   -d '{"first_name":"Priya","last_name":"Sharma","email":"priya@example.com","phone_number":"+919876543210","country":"IN"}'
 #
 # curl -X POST http://localhost:5000/auth/register/mechanic \
 #   -H "Content-Type: application/json" \
-#   -d '{"first_name":"Raju","last_name":"Kumar","gender":"male","phone_number":"+919988776655","country":"IN","workshop_name":"Raju Auto Works","address":"Gomti Nagar, Lucknow","zone":"Gomti Nagar","lat":26.8467,"lng":80.9462}'
+#   -d '{"first_name":"Raju","last_name":"Kumar","gender":"male","email":"raju@example.com","phone_number":"+919988776655","country":"IN","workshop_name":"Raju Auto Works","address":"Gomti Nagar, Lucknow","zone":"Gomti Nagar","lat":26.8467,"lng":80.9462}'
 #
 # curl -X POST http://localhost:5000/auth/verify-otp \
 #   -H "Content-Type: application/json" \
-#   -d '{"phone_number":"+919876543210","otp":"123456","role":"user"}'
+#   -d '{"email":"priya@example.com","otp":"123456","role":"user"}'
 
+import os
 import random
 import re
 import secrets
+import smtplib
 from datetime import datetime, timedelta, timezone
+from email.mime.text import MIMEText
 from functools import wraps
 
 from flask import Blueprint, g, jsonify, request
@@ -28,6 +31,7 @@ _token_store = {}
 
 OTP_EXPIRY_SECONDS = 300
 COUNTRY_PATTERN = re.compile(r"^[A-Z]{2}$")
+EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def validate_token(token):
@@ -65,6 +69,10 @@ def _validate_country(country):
 
 
 def _validate_coordinates(lat, lng):
+    """Validate lat/lng if provided. Returns (lat, lng) tuple or None.
+    Returns None for missing/invalid values — caller decides if that's an error."""
+    if lat is None or lng is None:
+        return None
     try:
         lat_f = float(lat)
         lng_f = float(lng)
@@ -81,36 +89,74 @@ def _generate_otp():
     return f"{random.randint(0, 999999):06d}"
 
 
-def _store_otp(cur, phone_number, otp_code, purpose):
+def _store_otp(cur, email, otp_code, purpose):
+    """Store OTP keyed by email address."""
     expires_at = datetime.now(timezone.utc) + timedelta(seconds=OTP_EXPIRY_SECONDS)
     cur.execute(
         """
-        INSERT INTO otp_store (phone, otp_code, purpose, expires_at)
+        INSERT INTO otp_store (email, otp_code, purpose, expires_at)
         VALUES (%s, %s, %s, %s)
-        ON CONFLICT (phone)
+        ON CONFLICT (email)
         DO UPDATE SET otp_code = EXCLUDED.otp_code,
                       purpose = EXCLUDED.purpose,
                       expires_at = EXCLUDED.expires_at;
         """,
-        (phone_number, otp_code, purpose, expires_at),
+        (email, otp_code, purpose, expires_at),
     )
+    # Always print OTP to terminal — demo-day fallback, never removed.
     print(
-        f"[OTP] phone={phone_number} otp={otp_code} "
+        f"[OTP] email={email} otp={otp_code} "
         f"purpose={purpose} expires_at={expires_at.isoformat()}"
     )
     return expires_at
+
+
+def _send_otp_email(email, otp_code):
+    """Send OTP via Gmail SMTP. Returns True on success, False on failure.
+    Never raises — email delivery failure must not crash registration."""
+    gmail_address = os.getenv("GMAIL_ADDRESS")
+    gmail_app_password = os.getenv("GMAIL_APP_PASSWORD")
+
+    if not gmail_address or not gmail_app_password:
+        print("[OTP EMAIL] GMAIL_ADDRESS or GMAIL_APP_PASSWORD not set — skipping email send")
+        return False
+
+    try:
+        msg = MIMEText(
+            f"Your OttoAssist verification code is: {otp_code}\n\n"
+            f"This code expires in {OTP_EXPIRY_SECONDS // 60} minutes.\n"
+            f"If you did not request this, please ignore this email.",
+            "plain",
+        )
+        msg["Subject"] = f"OttoAssist OTP: {otp_code}"
+        msg["From"] = gmail_address
+        msg["To"] = email
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(gmail_address, gmail_app_password)
+            server.send_message(msg)
+
+        print(f"[OTP EMAIL] Successfully sent to {email}")
+        return True
+    except Exception as exc:
+        print(f"[OTP EMAIL] Failed to send to {email}: {exc}")
+        return False
 
 
 @auth_bp.route("/register/user", methods=["POST"])
 def register_user():
     data = request.get_json(silent=True) or {}
 
-    required = ["first_name", "phone_number", "country"]
+    required = ["first_name", "email", "phone_number", "country"]
     missing = _missing_fields(data, required)
     if missing:
         return jsonify({
             "error": f"Missing required field(s): {', '.join(missing)}",
         }), 400
+
+    email = (data.get("email") or "").strip().lower()
+    if not EMAIL_PATTERN.match(email):
+        return jsonify({"error": "Invalid email address"}), 400
 
     country = data.get("country")
     if isinstance(country, str):
@@ -122,7 +168,6 @@ def register_user():
     phone_number = data.get("phone_number")
     first_name = data.get("first_name")
     last_name = data.get("last_name")
-    email = data.get("email")
     language = data.get("language") or "en"
     display_name = data.get("display_name")
     if not display_name and last_name:
@@ -133,6 +178,15 @@ def register_user():
     try:
         with get_db() as conn:
             with conn.cursor() as cur:
+                # Check email uniqueness
+                cur.execute(
+                    "SELECT 1 FROM users WHERE email = %s;",
+                    (email,),
+                )
+                if cur.fetchone():
+                    return jsonify({"error": "Email already registered"}), 409
+
+                # Check phone uniqueness
                 cur.execute(
                     "SELECT 1 FROM users WHERE phone_number = %s;",
                     (phone_number,),
@@ -146,9 +200,9 @@ def register_user():
                     """
                     INSERT INTO users (
                         first_name, last_name, display_name, email,
-                        phone_number, country, language, phone_verified
+                        phone_number, country, language
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, FALSE)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                     RETURNING user_id;
                     """,
                     (
@@ -162,14 +216,18 @@ def register_user():
                     ),
                 )
                 user_id = cur.fetchone()[0]
-                _store_otp(cur, phone_number, otp_code, "registration")
+                _store_otp(cur, email, otp_code, "registration")
     except Exception:
         return db_error_response()
+
+    # Send OTP email after DB commit — failure does not roll back registration
+    email_sent = _send_otp_email(email, otp_code)
 
     return jsonify({
         "user_id": str(user_id),
         "message": "OTP sent for registration verification",
         "expires_in_seconds": OTP_EXPIRY_SECONDS,
+        "email_delivery": "sent" if email_sent else "failed",
     }), 201
 
 
@@ -181,19 +239,22 @@ def register_mechanic():
         "first_name",
         "last_name",
         "gender",
+        "email",
         "phone_number",
         "country",
         "workshop_name",
         "address",
         "zone",
-        "lat",
-        "lng",
     ]
     missing = _missing_fields(data, required)
     if missing:
         return jsonify({
             "error": f"Missing required field(s): {', '.join(missing)}",
         }), 400
+
+    email = (data.get("email") or "").strip().lower()
+    if not EMAIL_PATTERN.match(email):
+        return jsonify({"error": "Invalid email address"}), 400
 
     country = data.get("country")
     if isinstance(country, str):
@@ -202,10 +263,10 @@ def register_mechanic():
     if country_error:
         return country_error
 
+    # lat/lng are optional — captured via browser geolocation, may be null
     coords = _validate_coordinates(data.get("lat"), data.get("lng"))
-    if coords is None:
-        return jsonify({"error": "Invalid coordinates"}), 400
-    lat, lng = coords
+    lat = coords[0] if coords else None
+    lng = coords[1] if coords else None
 
     phone_number = data.get("phone_number")
     first_name = data.get("first_name")
@@ -214,13 +275,21 @@ def register_mechanic():
     workshop_name = data.get("workshop_name")
     address = data.get("address")
     zone = data.get("zone")
-    email = data.get("email")
     language = data.get("language") or "en"
     display_name = data.get("display_name") or f"{first_name} {last_name}"
 
     try:
         with get_db() as conn:
             with conn.cursor() as cur:
+                # Check email uniqueness
+                cur.execute(
+                    "SELECT 1 FROM mechanics WHERE email = %s;",
+                    (email,),
+                )
+                if cur.fetchone():
+                    return jsonify({"error": "Email already registered"}), 409
+
+                # Check phone uniqueness
                 cur.execute(
                     "SELECT 1 FROM mechanics WHERE phone_number = %s;",
                     (phone_number,),
@@ -230,47 +299,79 @@ def register_mechanic():
 
                 otp_code = _generate_otp()
 
-                cur.execute(
-                    """
-                    INSERT INTO mechanics (
-                        first_name, last_name, display_name, gender, email,
-                        phone_number, country, language, workshop_name, address,
-                        zone, lat, lng, location, phone_verified, is_available
+                if lat is not None and lng is not None:
+                    cur.execute(
+                        """
+                        INSERT INTO mechanics (
+                            first_name, last_name, display_name, gender, email,
+                            phone_number, country, language, workshop_name, address,
+                            zone, lat, lng, location, is_available
+                        )
+                        VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                            ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,
+                            FALSE
+                        )
+                        RETURNING mechanic_id;
+                        """,
+                        (
+                            first_name,
+                            last_name,
+                            display_name,
+                            gender,
+                            email,
+                            phone_number,
+                            country,
+                            language,
+                            workshop_name,
+                            address,
+                            zone,
+                            lat,
+                            lng,
+                            lng,
+                            lat,
+                        ),
                     )
-                    VALUES (
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,
-                        FALSE, FALSE
+                else:
+                    cur.execute(
+                        """
+                        INSERT INTO mechanics (
+                            first_name, last_name, display_name, gender, email,
+                            phone_number, country, language, workshop_name, address,
+                            zone, is_available
+                        )
+                        VALUES (
+                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                            FALSE
+                        )
+                        RETURNING mechanic_id;
+                        """,
+                        (
+                            first_name,
+                            last_name,
+                            display_name,
+                            gender,
+                            email,
+                            phone_number,
+                            country,
+                            language,
+                            workshop_name,
+                            address,
+                            zone,
+                        ),
                     )
-                    RETURNING mechanic_id;
-                    """,
-                    (
-                        first_name,
-                        last_name,
-                        display_name,
-                        gender,
-                        email,
-                        phone_number,
-                        country,
-                        language,
-                        workshop_name,
-                        address,
-                        zone,
-                        lat,
-                        lng,
-                        lng,
-                        lat,
-                    ),
-                )
                 mechanic_id = cur.fetchone()[0]
-                _store_otp(cur, phone_number, otp_code, "registration")
+                _store_otp(cur, email, otp_code, "registration")
     except Exception:
         return db_error_response()
+
+    email_sent = _send_otp_email(email, otp_code)
 
     return jsonify({
         "mechanic_id": str(mechanic_id),
         "message": "OTP sent for registration verification",
         "expires_in_seconds": OTP_EXPIRY_SECONDS,
+        "email_delivery": "sent" if email_sent else "failed",
     }), 201
 
 
@@ -278,17 +379,17 @@ def register_mechanic():
 def verify_otp():
     data = request.get_json(silent=True) or {}
 
-    phone_number = data.get("phone_number")
+    email = (data.get("email") or "").strip().lower()
     otp = data.get("otp")
     role = data.get("role")
 
     if role not in ("user", "mechanic"):
         return jsonify({"error": "role must be 'user' or 'mechanic'"}), 400
 
-    if not phone_number or not otp:
+    if not email or not otp:
         missing = []
-        if not phone_number:
-            missing.append("phone_number")
+        if not email:
+            missing.append("email")
         if not otp:
             missing.append("otp")
         return jsonify({
@@ -302,9 +403,9 @@ def verify_otp():
                     """
                     SELECT otp_code, expires_at
                     FROM otp_store
-                    WHERE phone = %s;
+                    WHERE email = %s;
                     """,
-                    (phone_number,),
+                    (email,),
                 )
                 row = cur.fetchone()
 
@@ -318,8 +419,8 @@ def verify_otp():
 
                 if now > expires_at:
                     cur.execute(
-                        "DELETE FROM otp_store WHERE phone = %s;",
-                        (phone_number,),
+                        "DELETE FROM otp_store WHERE email = %s;",
+                        (email,),
                     )
                     return jsonify({
                         "error": "OTP expired, please request a new one",
@@ -332,11 +433,11 @@ def verify_otp():
                     cur.execute(
                         """
                         UPDATE users
-                        SET phone_verified = TRUE, last_login = NOW()
-                        WHERE phone_number = %s
+                        SET last_login = NOW()
+                        WHERE email = %s
                         RETURNING user_id;
                         """,
-                        (phone_number,),
+                        (email,),
                     )
                     identity = cur.fetchone()
                     if not identity:
@@ -346,11 +447,11 @@ def verify_otp():
                     cur.execute(
                         """
                         UPDATE mechanics
-                        SET phone_verified = TRUE, last_login = NOW()
-                        WHERE phone_number = %s
+                        SET last_login = NOW()
+                        WHERE email = %s
                         RETURNING mechanic_id;
                         """,
-                        (phone_number,),
+                        (email,),
                     )
                     identity = cur.fetchone()
                     if not identity:
@@ -358,8 +459,8 @@ def verify_otp():
                     entity_id = identity[0]
 
                 cur.execute(
-                    "DELETE FROM otp_store WHERE phone = %s;",
-                    (phone_number,),
+                    "DELETE FROM otp_store WHERE email = %s;",
+                    (email,),
                 )
     except Exception:
         return db_error_response()
