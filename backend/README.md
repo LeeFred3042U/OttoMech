@@ -1,17 +1,15 @@
-# OttoAssist — Stage 1 (Backend Foundation)
+# OttoAssist — Stage 2 (Registration Overhaul)
 
-Flask API for roadside mechanic dispatch in Lucknow. Raw SQL against Neon PostgreSQL with PostGIS.
+Flask API for roadside mechanic dispatch in Lucknow. UUID-based registration, E.164 phones, PostGIS geo queries. Raw SQL against Neon PostgreSQL.
 
 ## Prerequisites
 
 - Python 3.10+
-- Neon PostgreSQL database with PostGIS support
+- Neon PostgreSQL with PostGIS and pgcrypto extensions
 
 ## Setup
 
 ```bash
-git clone https://github.com/LeeFred3042U/OttoMech.git
-
 cd ottomech/backend
 
 python -m venv venv
@@ -19,13 +17,8 @@ python -m venv venv
 venv\Scripts\activate
 # Linux / macOS
 source venv/bin/activate
-# Git Bash
-source venv/Scripts/activate
 
 pip install -r requirements.txt
-
-python seed.py
-python app.py
 ```
 
 Ensure `.env` contains your Neon connection string:
@@ -35,7 +28,7 @@ DATABASE_URL=postgresql://...
 SECRET_KEY=ottomech_dev
 ```
 
-Initialize tables and seed Lucknow garages:
+Initialize v2 schema and seed 20 garages:
 
 ```bash
 python seed.py
@@ -57,34 +50,44 @@ Server runs at `http://localhost:5000`.
 curl http://localhost:5000/health
 ```
 
-### Send OTP
+### Register user (driver)
 
-Generates a 6-digit OTP, stores it, and prints it to the terminal (no SMS).
+Creates a user with `phone_verified=false`, stores OTP with `purpose=registration`, prints OTP to terminal.
 
 ```bash
-curl -X POST http://localhost:5000/auth/send-otp \
+curl -X POST http://localhost:5000/auth/register/user \
   -H "Content-Type: application/json" \
-  -d "{\"phone\": \"9876543210\"}"
+  -d "{\"first_name\":\"Priya\",\"last_name\":\"Sharma\",\"phone_number\":\"+919876543210\",\"country\":\"IN\"}"
 ```
 
-Check the terminal running `app.py` for the OTP code.
+### Register mechanic
+
+Creates a mechanic with `phone_verified=false` and `is_available=false`.
+
+```bash
+curl -X POST http://localhost:5000/auth/register/mechanic \
+  -H "Content-Type: application/json" \
+  -d "{\"first_name\":\"Raju\",\"last_name\":\"Kumar\",\"gender\":\"male\",\"phone_number\":\"+919988776655\",\"country\":\"IN\",\"workshop_name\":\"Raju Auto Works\",\"address\":\"Gomti Nagar, Lucknow\",\"zone\":\"Gomti Nagar\",\"lat\":26.8467,\"lng\":80.9462}"
+```
 
 ### Verify OTP
+
+Check the terminal running `app.py` for the OTP code.
 
 ```bash
 curl -X POST http://localhost:5000/auth/verify-otp \
   -H "Content-Type: application/json" \
-  -d "{\"phone\": \"9876543210\", \"otp\": \"123456\"}"
+  -d "{\"phone_number\":\"+919876543210\",\"otp\":\"123456\",\"role\":\"user\"}"
 ```
 
-Replace `123456` with the OTP printed in the terminal.
+`role` must be `user` or `mechanic`.
 
-### Nearby mechanics (PostGIS)
+### Nearby mechanics (PostGIS, max 3)
 
-Search within a radius (km) of a lat/lng point:
+Returns only `is_available=true` mechanics, nearest first.
 
 ```bash
-curl "http://localhost:5000/mechanics/nearby?lat=26.8467&lng=80.9462&radius_km=10"
+curl "http://localhost:5000/mechanics/nearby?lat=26.8550&lng=80.9400&radius_km=15"
 ```
 
 ### Create job
@@ -92,51 +95,54 @@ curl "http://localhost:5000/mechanics/nearby?lat=26.8467&lng=80.9462&radius_km=1
 ```bash
 curl -X POST http://localhost:5000/jobs/create \
   -H "Content-Type: application/json" \
-  -d "{\"driver_phone\": \"9876543210\", \"issue_type\": \"flat_tire\", \"lat\": 26.8467, \"lng\": 80.9462}"
+  -d "{\"driver_id\":\"<user-uuid>\",\"issue_type\":\"flat_tyre\",\"lat\":26.8467,\"lng\":80.9462}"
 ```
 
 ### Accept job (mechanic)
 
 ```bash
-curl -X PATCH http://localhost:5000/jobs/1/accept \
+curl -X PATCH http://localhost:5000/jobs/<job-uuid>/accept \
   -H "Content-Type: application/json" \
-  -d "{\"mechanic_id\": 1}"
+  -d "{\"mechanic_id\":\"<mechanic-uuid>\"}"
 ```
 
 ### Get job details
 
 ```bash
-curl http://localhost:5000/jobs/1
+curl http://localhost:5000/jobs/<job-uuid>
 ```
 
 ## Project structure
 
 ```
-ottomech/
-  app.py              # Flask entry point
-  db.py               # Connection pool helper, schema init, PostGIS
+backend/
+  app.py
+  db.py               # v2 schema, pgcrypto + postgis, auto-migration from v1
+  seed.py             # 20 garages (10 real + 10 dummy)
   routes/
-    auth.py           # OTP send / verify
-    mechanic.py       # Nearby mechanics query
-    job.py            # Job create / accept / get
-  seed.py             # Lucknow garage seed data
+    auth.py           # register/user, register/mechanic, verify-otp
+    mechanic.py       # nearby (LIMIT 3)
+    job.py            # create, accept, get
+    common.py         # shared error responses
   requirements.txt
   .env
 ```
 
-## Seeded garages (Lucknow)
+## Seed data
 
-| Zone         | Garage                      |
-|--------------|-----------------------------|
-| Gomti Nagar  | Gomti Auto Care             |
-| Hazratganj   | Hazratganj Motors           |
-| Alambagh     | Alambagh Roadside Garage    |
-| Indira Nagar | Indira Nagar Car Clinic     |
-| Lalbagh      | Lalbagh Express Service     |
+`python seed.py` drops and recreates all v2 tables, then upserts 20 mechanics. Expected output:
+
+```
+20 mechanics seeded
+13 mechanics with is_available=true
+```
+
+Re-running `seed.py` uses `ON CONFLICT (phone_number) DO UPDATE` — no duplicate rows.
 
 ## Notes
 
-- All responses are JSON.
-- Database errors return HTTP 500 with an error message.
-- PostGIS extension is enabled automatically on first run via `init_db()`.
-- Session tokens from OTP verify are mock tokens for now (no JWT validation yet).
+- Phone numbers stored as E.164 exactly as submitted (`+91XXXXXXXXXX`).
+- Country must be 2-letter uppercase ISO code (e.g. `IN`).
+- UUID primary keys via `gen_random_uuid()` (pgcrypto).
+- Session tokens are hex strings in an in-memory `_token_store` dict (no JWT).
+- Database errors return `{"error": "Database connection failed"}` without leaking stack traces.

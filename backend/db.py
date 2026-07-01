@@ -2,12 +2,132 @@ import os
 from contextlib import contextmanager
 
 import psycopg2
-import psycopg2.extras
 from dotenv import load_dotenv
 
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+
+DROP_TABLES_SQL = """
+DROP TABLE IF EXISTS receipts CASCADE;
+DROP TABLE IF EXISTS mri_events CASCADE;
+DROP TABLE IF EXISTS job_broadcasts CASCADE;
+DROP TABLE IF EXISTS jobs CASCADE;
+DROP TABLE IF EXISTS otp_store CASCADE;
+DROP TABLE IF EXISTS mechanics CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+"""
+
+CREATE_TABLES_SQL = """
+CREATE TABLE users (
+    user_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    first_name       VARCHAR(50) NOT NULL,
+    last_name        VARCHAR(50),
+    display_name     VARCHAR(100),
+    email            VARCHAR(255) UNIQUE,
+    phone_number     VARCHAR(20) UNIQUE NOT NULL,
+    country          CHAR(2) NOT NULL,
+    language         VARCHAR(10) DEFAULT 'en',
+    profile_photo    TEXT,
+    date_created     TIMESTAMPTZ DEFAULT NOW(),
+    status           VARCHAR(20) DEFAULT 'active',
+    password_hash    TEXT,
+    phone_verified   BOOLEAN DEFAULT FALSE,
+    email_verified   BOOLEAN DEFAULT FALSE,
+    last_login       TIMESTAMPTZ,
+    two_fa_enabled   BOOLEAN DEFAULT FALSE,
+    two_fa_method    VARCHAR(20)
+);
+
+CREATE TABLE mechanics (
+    mechanic_id      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    first_name       VARCHAR(50) NOT NULL,
+    last_name        VARCHAR(50),
+    display_name     VARCHAR(100),
+    gender           VARCHAR(20),
+    email            VARCHAR(255) UNIQUE,
+    phone_number     VARCHAR(20) UNIQUE NOT NULL,
+    country          CHAR(2) NOT NULL,
+    language         VARCHAR(10) DEFAULT 'en',
+    profile_photo    TEXT,
+    workshop_name    VARCHAR(150) NOT NULL,
+    address          TEXT,
+    zone             VARCHAR(50),
+    lat              NUMERIC(9,6),
+    lng              NUMERIC(9,6),
+    location         GEOGRAPHY(POINT, 4326),
+    is_available     BOOLEAN DEFAULT FALSE,
+    rating           NUMERIC(3,2) DEFAULT 0.00,
+    review_count     INT DEFAULT 0,
+    mri_score        NUMERIC(5,2) DEFAULT 50.00,
+    date_created     TIMESTAMPTZ DEFAULT NOW(),
+    status           VARCHAR(20) DEFAULT 'active',
+    password_hash    TEXT,
+    phone_verified   BOOLEAN DEFAULT FALSE,
+    email_verified   BOOLEAN DEFAULT FALSE,
+    last_login       TIMESTAMPTZ,
+    two_fa_enabled   BOOLEAN DEFAULT FALSE,
+    two_fa_method    VARCHAR(20)
+);
+
+CREATE INDEX idx_mechanics_location ON mechanics USING GIST(location);
+
+CREATE TABLE otp_store (
+    phone        VARCHAR(20) PRIMARY KEY,
+    otp_code     CHAR(6) NOT NULL,
+    purpose      VARCHAR(20) DEFAULT 'login'
+                 CHECK (purpose IN ('registration', 'login')),
+    expires_at   TIMESTAMPTZ NOT NULL
+);
+
+CREATE TABLE jobs (
+    job_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    driver_id        UUID REFERENCES users(user_id),
+    mechanic_id      UUID REFERENCES mechanics(mechanic_id),
+    issue_type       VARCHAR(30) NOT NULL,
+    status           VARCHAR(30) DEFAULT 'pending',
+    lat              NUMERIC(9,6),
+    lng              NUMERIC(9,6),
+    driver_location  GEOGRAPHY(POINT, 4326),
+    photo_base64     TEXT,
+    cash_amount      NUMERIC(8,2),
+    created_at       TIMESTAMPTZ DEFAULT NOW(),
+    accepted_at      TIMESTAMPTZ,
+    completed_at     TIMESTAMPTZ
+);
+
+CREATE TABLE job_broadcasts (
+    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id       UUID REFERENCES jobs(job_id),
+    mechanic_id  UUID REFERENCES mechanics(mechanic_id),
+    sent_at      TIMESTAMPTZ DEFAULT NOW(),
+    responded    BOOLEAN DEFAULT FALSE,
+    accepted     BOOLEAN DEFAULT FALSE
+);
+
+CREATE INDEX idx_job_broadcasts_job ON job_broadcasts(job_id);
+
+CREATE INDEX idx_jobs_pending ON jobs(job_id) WHERE status = 'pending';
+
+CREATE TABLE mri_events (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    mechanic_id   UUID REFERENCES mechanics(mechanic_id),
+    event_type    VARCHAR(30) NOT NULL,
+    value         NUMERIC(5,2),
+    recorded_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_mri_events_mechanic ON mri_events(mechanic_id);
+
+CREATE TABLE receipts (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id          UUID REFERENCES jobs(job_id) UNIQUE,
+    pdf_base64      TEXT,
+    cash_amount     NUMERIC(8,2),
+    warranty_days   INT DEFAULT 0,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+);
+"""
 
 
 def get_connection():
@@ -32,60 +152,32 @@ def get_db():
             conn.close()
 
 
-def init_db():
+def _schema_is_v2(cur):
+    cur.execute(
+        """
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'users'
+          AND column_name = 'user_id';
+        """
+    )
+    return cur.fetchone() is not None
+
+
+def init_db(force_reset=False):
     with get_db() as conn:
         with conn.cursor() as cur:
+            cur.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto;")
             cur.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
 
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id SERIAL PRIMARY KEY,
-                    phone VARCHAR(20) UNIQUE NOT NULL,
-                    name VARCHAR(100),
-                    created_at TIMESTAMPTZ DEFAULT NOW()
-                );
-            """)
-
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS otp_store (
-                    phone VARCHAR(20) PRIMARY KEY,
-                    otp_code VARCHAR(6) NOT NULL,
-                    expires_at TIMESTAMPTZ NOT NULL
-                );
-            """)
-
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS mechanics (
-                    id SERIAL PRIMARY KEY,
-                    name VARCHAR(100) NOT NULL,
-                    phone VARCHAR(20) UNIQUE NOT NULL,
-                    garage_name VARCHAR(150) NOT NULL,
-                    lat DOUBLE PRECISION NOT NULL,
-                    lng DOUBLE PRECISION NOT NULL,
-                    location GEOGRAPHY(POINT, 4326) NOT NULL,
-                    zone VARCHAR(100),
-                    is_available BOOLEAN DEFAULT TRUE,
-                    rating NUMERIC(3, 2) DEFAULT 4.00,
-                    created_at TIMESTAMPTZ DEFAULT NOW()
-                );
-            """)
-
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS jobs (
-                    id SERIAL PRIMARY KEY,
-                    driver_id INTEGER REFERENCES users(id),
-                    mechanic_id INTEGER REFERENCES mechanics(id),
-                    issue_type VARCHAR(100) NOT NULL,
-                    status VARCHAR(30) DEFAULT 'pending',
-                    created_at TIMESTAMPTZ DEFAULT NOW(),
-                    accepted_at TIMESTAMPTZ,
-                    completed_at TIMESTAMPTZ,
-                    lat DOUBLE PRECISION NOT NULL,
-                    lng DOUBLE PRECISION NOT NULL
-                );
-            """)
-
-            cur.execute("""
-                CREATE INDEX IF NOT EXISTS idx_mechanics_location
-                ON mechanics USING GIST (location);
-            """)
+            if force_reset or not _schema_is_v2(cur):
+                cur.execute(DROP_TABLES_SQL)
+                cur.execute(CREATE_TABLES_SQL)
+            else:
+                cur.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_jobs_pending
+                    ON jobs(job_id) WHERE status = 'pending';
+                    """
+                )
