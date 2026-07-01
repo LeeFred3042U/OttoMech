@@ -1,0 +1,8 @@
+{
+  "name": "OttoAssist",
+  "description": "Connecting stranded Lucknow drivers to verified mechanics with upfront pricing, offline mode backup, dynamic reliability index, and on-site match-tracking.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
