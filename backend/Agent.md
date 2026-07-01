@@ -1,4 +1,4 @@
-# AGENT.md — OttoAssist
+# AGENT.md — OttoMech
 > Read this file completely before writing a single line of code.
 > This is the project's institutional memory. Every decision here was made deliberately.
 > v2 — supersedes prior SERIAL/no-map/no-registration decisions where noted below.
@@ -7,7 +7,7 @@
 
 ## What This Project Is
 
-OttoAssist is a PWA (no app install) that connects stranded users in Lucknow with nearby verified mechanics in under 5 minutes. Think Rapido/Uber/Porter/Ola but for roadside mechanic dispatch. User opens browser, registers, picks issue type, system finds nearest 3 mechanics via GPS, first to accept gets the job. Payment is cash on completion — no payment gateway in any stage.
+OttoMech is a PWA (no app install) that connects stranded users in Lucknow with nearby verified mechanics in under 5 minutes. Think Rapido/Uber/Porter/Ola but for roadside mechanic dispatch. User opens browser, registers, picks issue type, system finds nearest 3 mechanics via GPS, first to accept gets the job. Payment is cash on completion — no payment gateway in any stage.
 
 **Tagline:** Your mechanic. One tap away.
 **Hackathon:** CODESLAYER2k25, DevSphere India, Open Innovation track.

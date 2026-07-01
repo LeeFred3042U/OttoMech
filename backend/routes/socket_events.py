@@ -1,5 +1,5 @@
 """
-Stage 4 — Socket.IO event handlers for OttoAssist real-time dispatch.
+Stage 4 — Socket.IO event handlers for OttoMech real-time dispatch.
 
 active_jobs: in-memory dict, keyed by job_id (str UUID).
   Each value: {"driver_sid": str|None, "mechanic_sid": str|None}
@@ -57,7 +57,7 @@ def emit_new_job(socketio: SocketIO, job_id: str, issue_type: str,
     }
     for mechanic_id in mechanic_ids:
         room = f"mechanic_{mechanic_id}"
-        socketio.emit("new_job", payload, room=room)
+        socketio.emit("new_job", payload, to=room)
         logger.debug("emit new_job → room %s", room)
 
 
@@ -78,7 +78,7 @@ def emit_match_confirmed(socketio: SocketIO, job_id: str, driver_id: str,
         "phone": mechanic_data.get("phone"),
         "distance_km": mechanic_data.get("distance_km"),
     }
-    socketio.emit("match_confirmed", payload, room=room)
+    socketio.emit("match_confirmed", payload, to=room)
     logger.debug("emit match_confirmed → room %s", room)
 
 
@@ -217,7 +217,7 @@ def register_socket_events(socketio: SocketIO) -> None:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "distance_remaining_m": distance_m,
         }
-        socketio.emit("mechanic_ping", ping_payload, room=driver_sid)
+        socketio.emit("mechanic_ping", ping_payload, to=driver_sid)
         logger.debug("mechanic_ping → driver_sid %s dist=%.1fm", driver_sid, distance_m)
 
     # -----------------------------------------------------------------------

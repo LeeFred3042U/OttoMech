@@ -124,7 +124,7 @@ def main():
     results = {}
 
     print("=" * 60)
-    print("OttoAssist Stage 4 — Manual Socket Smoke Test")
+    print("OttoMech Stage 4 — Manual Socket Smoke Test")
     print("=" * 60)
 
     # Check server is up

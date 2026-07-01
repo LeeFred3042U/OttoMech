@@ -1,8 +1,8 @@
-# OttoAssist 🔧
+# OttoMech 🔧
 
 > **Your mechanic. One tap away.**
 >
-> OttoAssist connects stranded motorists in Lucknow with the nearest verified mechanics in under 5 minutes — no app install, no payment gateway, fully real-time.
+> OttoMech connects stranded motorists in Lucknow with the nearest verified mechanics in under 5 minutes — no app install, no payment gateway, fully real-time.
 >
 > Built for **CODESLAYER2k25 · DevSphere India · Open Innovation Track** by Team **GrootForce**.
 

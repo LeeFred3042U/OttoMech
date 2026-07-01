@@ -1,4 +1,4 @@
-# OttoAssist — Frontend
+# OttoMech — Frontend
 
 There is **no build step**. No npm, no webpack, no vite.
 

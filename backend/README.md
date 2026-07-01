@@ -1,4 +1,4 @@
-# OttoAssist — Stage 2 (Registration Overhaul)
+# OttoMech — Stage 2 (Registration Overhaul)
 
 Flask API for roadside mechanic dispatch in Lucknow. UUID-based registration, E.164 phones, PostGIS geo queries. Raw SQL against Neon PostgreSQL.
 

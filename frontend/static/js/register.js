@@ -1,6 +1,7 @@
 /* ═══════════════════════════════════════════════════════════
-   OttoAssist — register.js
-   Shared registration + OTP verification logic.
+   OttoMech — register.js
+   Handles both user and mechanic registration forms.
+   OTP verification logic.
    No localStorage/sessionStorage. All state in JS variables.
    OTP keyed on email, not phone. Geolocation for mechanics.
    ═══════════════════════════════════════════════════════════ */

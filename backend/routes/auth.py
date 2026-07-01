@@ -123,12 +123,12 @@ def _send_otp_email(email, otp_code):
 
     try:
         msg = MIMEText(
-            f"Your OttoAssist verification code is: {otp_code}\n\n"
+            f"Your OttoMech verification code is: {otp_code}\n\n"
             f"This code expires in {OTP_EXPIRY_SECONDS // 60} minutes.\n"
             f"If you did not request this, please ignore this email.",
             "plain",
         )
-        msg["Subject"] = f"OttoAssist OTP: {otp_code}"
+        msg["Subject"] = f"OttoMech OTP: {otp_code}"
         msg["From"] = gmail_address
         msg["To"] = email
 
