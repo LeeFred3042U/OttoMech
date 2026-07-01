@@ -1,20 +1,44 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# OttoAssist — Frontend
 
-# Run and deploy your AI Studio app
+There is **no build step**. No npm, no webpack, no vite.
 
-This contains everything you need to run your app locally.
+## How to run
 
-View your app in AI Studio: https://ai.studio/apps/9391d51f-5d41-454e-a80a-f0f7fbcf45ea
+Templates are served by Flask via `render_template()`.
+Start the backend and visit the routes in your browser:
 
-## Run Locally
+```
+cd backend
+python app.py
 
-**Prerequisites:**  Node.js
+# Then open:
+#   http://localhost:5000/register/user
+#   http://localhost:5000/register/mechanic
+```
 
+**Do not open `.html` files directly in a browser** — they use Jinja2 syntax
+(`{{ url_for(...) }}`, `{% extends %}`) that only works when served by Flask.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Structure
+
+```
+frontend/
+├── templates/          # Jinja2 templates — rendered by Flask
+│   ├── base.html       # Shared layout (header, footer, CSS/JS links)
+│   ├── register_user.html
+│   └── register_mechanic.html
+├── static/
+│   ├── css/
+│   │   └── base.css    # Mobile-first, dark-graphite palette
+│   └── js/
+│       └── register.js # Shared registration + OTP logic
+├── .gitignore
+└── README.md           # This file
+```
+
+## Design
+
+- **Palette**: Background `#1C1C1E`, text `#F5F5F0`, accent `#F5A623`
+- **Font**: Inter (Google Fonts)
+- **Mobile-first**: max-width 420px container, touch-friendly inputs
+- **No frameworks**: vanilla CSS + vanilla JS

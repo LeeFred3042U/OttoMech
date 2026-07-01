@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Register — Driver | OttoAssist{% endblock %}
+
+{% block content %}
+<section class="card" id="step-register">
+    <h1>Driver Registration</h1>
+    <p class="subtitle">Create your account to request roadside help</p>
+
+    <form id="register-form" novalidate>
+        <div class="field">
+            <label for="first_name">First Name <span class="required">*</span></label>
+            <input type="text" id="first_name" name="first_name" placeholder="Priya" required autocomplete="given-name">
+            <span class="field-error" id="err-first_name"></span>
+        </div>
+
+        <div class="field">
+            <label for="last_name">Last Name</label>
+            <input type="text" id="last_name" name="last_name" placeholder="Sharma" autocomplete="family-name">
+        </div>
+
+        <div class="field">
+            <label for="phone_number">Phone Number <span class="required">*</span></label>
+            <input type="tel" id="phone_number" name="phone_number" placeholder="+919876543210" required autocomplete="tel">
+            <span class="field-error" id="err-phone_number"></span>
+        </div>
+
+        <div class="field">
+            <label for="country">Country Code <span class="required">*</span></label>
+            <input type="text" id="country" name="country" placeholder="IN" maxlength="2" required autocomplete="country">
+            <span class="hint">2-letter code (IN, US, GB…). Server normalizes to uppercase.</span>
+            <span class="field-error" id="err-country"></span>
+        </div>
+
+        <div class="form-error" id="register-error" role="alert"></div>
+
+        <button type="submit" class="btn btn-primary" id="btn-register">
+            <span class="btn-text">Send OTP</span>
+            <span class="btn-loading" hidden>Sending…</span>
+        </button>
+    </form>
+</section>
+
+<section class="card" id="step-otp" hidden>
+    <h1>Verify OTP</h1>
+    <p class="subtitle">Enter the 6-digit code from the <strong>server terminal</strong></p>
+    <p class="otp-hint">🛠 Demo mode — OTP is printed in the backend terminal, not sent via SMS.</p>
+
+    <form id="otp-form" novalidate>
+        <div class="field">
+            <label for="otp">OTP Code</label>
+            <input type="text" id="otp" name="otp" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" required autocomplete="one-time-code">
+            <span class="field-error" id="err-otp"></span>
+        </div>
+
+        <div class="countdown" id="otp-countdown"></div>
+        <div class="form-error" id="otp-error" role="alert"></div>
+
+        <button type="submit" class="btn btn-primary" id="btn-verify">
+            <span class="btn-text">Verify</span>
+            <span class="btn-loading" hidden>Verifying…</span>
+        </button>
+    </form>
+</section>
+
+<section class="card success-card" id="step-success" hidden>
+    <div class="success-icon">✅</div>
+    <h1>Registration Complete</h1>
+    <p class="subtitle">Your phone is verified. You're ready to request help.</p>
+    <div class="token-display">
+        <label>Session Token</label>
+        <code id="session-token"></code>
+    </div>
+    <p class="hint">Dashboard will be available in the next stage.</p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/register.js') }}"></script>
+<script>
+    OttoRegister.init({
+        role: 'user',
+        registerFormId: 'register-form',
+        otpFormId: 'otp-form',
+        endpoint: '/auth/register/user',
+        fields: ['first_name', 'phone_number', 'country'],
+        optionalFields: ['last_name'],
+    });
+</script>
+{% endblock %}

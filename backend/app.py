@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template
 from flask_socketio import SocketIO
 
 from db import init_db
@@ -18,7 +18,11 @@ socketio = SocketIO(async_mode="threading", cors_allowed_origins="*")
 
 
 def create_app():
-    app = Flask(__name__)
+    app = Flask(
+        __name__,
+        template_folder=os.path.join(os.path.dirname(__file__), "..", "frontend", "templates"),
+        static_folder=os.path.join(os.path.dirname(__file__), "..", "frontend", "static"),
+    )
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "ottomech_dev")
 
     app.register_blueprint(auth_bp)
@@ -28,6 +32,15 @@ def create_app():
     @app.route("/health", methods=["GET"])
     def health():
         return jsonify({"status": "ok", "service": "ottomech"})
+
+    # ---- Registration pages (Stage 5) ------------------------------------
+    @app.route("/register/user", methods=["GET"])
+    def register_user_page():
+        return render_template("register_user.html")
+
+    @app.route("/register/mechanic", methods=["GET"])
+    def register_mechanic_page():
+        return render_template("register_mechanic.html")
 
     @app.route("/socket-status", methods=["GET"])
     def socket_status():

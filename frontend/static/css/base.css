@@ -1,0 +1,327 @@
+/* ═══════════════════════════════════════════════════════════
+   OttoAssist — base.css
+   Mobile-first, dark-graphite palette, no framework.
+   Background #1C1C1E · Text #F5F5F0 · Accent #F5A623
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Reset ────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #1C1C1E;
+    color: #F5F5F0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Header ───────────────────────────────────────────────── */
+.app-header {
+    text-align: center;
+    padding: 2rem 1rem 1rem;
+}
+
+.logo {
+    font-size: 1.75rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.logo-accent {
+    color: #F5A623;
+}
+
+.tagline {
+    font-size: 0.85rem;
+    color: #8E8E93;
+    margin-top: 0.25rem;
+    font-weight: 400;
+}
+
+/* ── Main Container ───────────────────────────────────────── */
+.container {
+    flex: 1;
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+    padding: 0 1rem 2rem;
+}
+
+/* ── Cards ─────────────────────────────────────────────────── */
+.card {
+    background: #2C2C2E;
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    animation: fadeSlideIn 0.35s ease-out;
+}
+
+.card h1 {
+    font-size: 1.35rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.card .subtitle {
+    font-size: 0.85rem;
+    color: #8E8E93;
+    margin-bottom: 1.25rem;
+}
+
+/* ── Form Fields ──────────────────────────────────────────── */
+.field {
+    margin-bottom: 1rem;
+}
+
+.field label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #AEAEB2;
+    margin-bottom: 0.35rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.required {
+    color: #F5A623;
+}
+
+.field input,
+.field select {
+    width: 100%;
+    padding: 0.7rem 0.85rem;
+    background: #1C1C1E;
+    border: 1.5px solid #3A3A3C;
+    border-radius: 10px;
+    color: #F5F5F0;
+    font-family: inherit;
+    font-size: 0.95rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    outline: none;
+}
+
+.field input::placeholder {
+    color: #636366;
+}
+
+.field input:focus,
+.field select:focus {
+    border-color: #F5A623;
+    box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.15);
+}
+
+.field select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4l4 4 4-4' fill='none' stroke='%238E8E93' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.85rem center;
+    padding-right: 2.5rem;
+}
+
+.field select option {
+    background: #2C2C2E;
+    color: #F5F5F0;
+}
+
+.field-row {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.field-row .field {
+    flex: 1;
+}
+
+.hint {
+    display: block;
+    font-size: 0.75rem;
+    color: #636366;
+    margin-top: 0.3rem;
+}
+
+/* ── Field Errors (inline) ────────────────────────────────── */
+.field-error {
+    display: block;
+    font-size: 0.78rem;
+    color: #FF453A;
+    margin-top: 0.3rem;
+    min-height: 0;
+    transition: all 0.2s ease;
+}
+
+.field-error:empty {
+    display: none;
+}
+
+.field.has-error input,
+.field.has-error select {
+    border-color: #FF453A;
+    box-shadow: 0 0 0 3px rgba(255, 69, 58, 0.12);
+}
+
+/* ── Form-level Error ─────────────────────────────────────── */
+.form-error {
+    background: rgba(255, 69, 58, 0.1);
+    border: 1px solid rgba(255, 69, 58, 0.25);
+    border-radius: 10px;
+    padding: 0.65rem 0.85rem;
+    font-size: 0.85rem;
+    color: #FF6961;
+    margin-bottom: 1rem;
+    animation: fadeSlideIn 0.25s ease-out;
+}
+
+.form-error:empty {
+    display: none;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: none;
+}
+
+.form-error.network-error {
+    background: rgba(255, 159, 10, 0.1);
+    border-color: rgba(255, 159, 10, 0.3);
+    color: #FFB340;
+}
+
+/* ── Buttons ──────────────────────────────────────────────── */
+.btn {
+    display: block;
+    width: 100%;
+    padding: 0.8rem;
+    border: none;
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease, opacity 0.2s ease;
+    position: relative;
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-primary {
+    background: #F5A623;
+    color: #1C1C1E;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #E6981F;
+}
+
+.btn-loading {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.btn-loading::before {
+    content: '';
+    width: 14px;
+    height: 14px;
+    border: 2px solid #1C1C1E;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+/* ── OTP Section ──────────────────────────────────────────── */
+.otp-hint {
+    font-size: 0.8rem;
+    background: rgba(245, 166, 35, 0.1);
+    border: 1px solid rgba(245, 166, 35, 0.2);
+    border-radius: 10px;
+    padding: 0.6rem 0.85rem;
+    margin-bottom: 1rem;
+    color: #F5A623;
+}
+
+.countdown {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #8E8E93;
+    margin-bottom: 1rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.countdown.expired {
+    color: #FF453A;
+}
+
+/* ── Success Card ─────────────────────────────────────────── */
+.success-card {
+    text-align: center;
+}
+
+.success-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.token-display {
+    background: #1C1C1E;
+    border-radius: 10px;
+    padding: 0.85rem;
+    margin: 1rem 0;
+    text-align: left;
+}
+
+.token-display label {
+    display: block;
+    font-size: 0.7rem;
+    color: #8E8E93;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.35rem;
+}
+
+.token-display code {
+    display: block;
+    font-size: 0.72rem;
+    color: #30D158;
+    word-break: break-all;
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    line-height: 1.6;
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.app-footer {
+    text-align: center;
+    padding: 1rem;
+    font-size: 0.7rem;
+    color: #48484A;
+}
+
+/* ── Animations ───────────────────────────────────────────── */
+@keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ── Utility: hidden attribute override ───────────────────── */
+[hidden] {
+    display: none !important;
+}
