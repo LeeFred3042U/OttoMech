@@ -1,7 +1,0 @@
-Flask==3.0.3
-psycopg2-binary>=2.9.10
-python-dotenv==1.0.1
-flask-socketio==5.3.6
-# eventlet required for production gunicorn deployment (Stage 8, Render).
-# async_mode="threading" is used in development and tests (no monkey-patching needed).
-eventlet==0.35.2
