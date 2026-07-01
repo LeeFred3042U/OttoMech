@@ -29,6 +29,10 @@ def create_app():
     app.register_blueprint(mechanic_bp)
     app.register_blueprint(job_bp)
 
+    @app.route("/", methods=["GET"])
+    def index():
+        return jsonify({"message": "Backend is running."})
+
     @app.route("/health", methods=["GET"])
     def health():
         return jsonify({"status": "ok", "service": "ottomech"})
