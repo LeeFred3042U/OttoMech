@@ -32,15 +32,15 @@ OttoAssist is a PWA (no app install) that connects stranded drivers in Lucknow w
 | Stage | Description | Status |
 |---|---|---|
 | 1 | Flask + Neon DB foundation, basic auth routes, 5 seed garages | ✅ Complete |
-| 2 | **Registration overhaul**: UUID schema, full user/mechanic profiles, E.164 + country code OTP, 20-garage seed (10 real + 10 dummy) | 🔄 Current |
-| 3 | Core dispatch API: job broadcast to 3 mechanics, job_broadcasts table, auth middleware on protected routes | ⏳ |
-| 4 | Real-time: Socket.IO, mechanic GPS ping → driver map (Leaflet) | ⏳ |
-| 5 | Frontend (PWA): registration → OTP login → issue select → mechanic match, Leaflet map integrated | ⏳ |
+| 2 | **Registration overhaul**: UUID schema, full user/mechanic profiles, E.164 + country code OTP, 20-garage seed (10 real + 10 dummy) | ✅ Complete |
+| 3 | Core dispatch API: job broadcast to 3 mechanics, `job_broadcasts` table, auth middleware on protected routes | ✅ Complete |
+| 4 | Real-time: Socket.IO, mechanic GPS ping → driver map (Leaflet), `match_confirmed` event, `rejoin_job`, `socket-status` debug route | ✅ Complete |
+| 5 | Frontend (PWA): registration → OTP login → issue select → mechanic match, Leaflet map integrated | 🔄 Current |
 | 6 | Mechanic dashboard: registration flow, job accept UI, GPS emit loop | ⏳ |
 | 7 | MRI scoring (ReportLab PDF receipt — cash amount entered manually by mechanic, no gateway) | ⏳ |
 | 8 | Demo polish: 8 garages live, offline mode, **live registration demo readiness** (this is the demo-day centerpiece) | ⏳ |
 
-**Never work ahead of the current stage.** Do not add Stage 4 features while in Stage 2.
+**Never work ahead of the current stage.** Do not add Stage 6 features while in Stage 5.
 
 ---
 
@@ -232,6 +232,21 @@ PATCH /jobs/:job_id/complete
 
 GET  /jobs/:job_id
 GET  /health
+GET  /socket-status        → {connected_jobs: N}    # no auth, Stage 4 debug route
+```
+
+### Stage 4 Socket.IO Events
+
+```
+Client → Server:
+  connect         auth: {token: <session_token>}
+  mechanic_location  {job_id, lat, lng}
+  rejoin_job      {job_id, token}
+
+Server → Client (room-targeted):
+  new_job         {job_id, issue_type, lat, lng, mechanic_ids[], accept_deadline}
+  match_confirmed {job_id, mechanic: {name, workshop_name, mri_score, phone, distance_km}}
+  location_update {job_id, lat, lng, distance_m}
 ```
 
 ---
@@ -255,6 +270,26 @@ GET  /health
 - **Country auto-derived from country picker at registration** — store as ISO 3166-1 alpha-2 in `country`. Do not add a separate "select your country code" dropdown; the country picker drives both the E.164 prefix and this column from one selection.
 - **Separate registration routes per role** — `/auth/register/user` and `/auth/register/mechanic` are distinct because mechanic registration needs workshop_name, gender, zone, lat/lng that user registration doesn't. Do not merge them into one generic `/auth/register`.
 - **OTP purpose field** distinguishes `registration` vs `login` OTPs so expired registration OTPs don't accidentally authorize a login elsewhere.
+
+## New Decisions (Stage 3 — complete)
+
+- **Auth middleware via `require_auth` decorator** — reads `Authorization: Bearer <token>` from request headers, validates against `_token_store`, attaches `g.auth = {id, role}`. Applied to all `/jobs/*` routes.
+- **Concurrency guard**: `UPDATE jobs SET mechanic_id=... WHERE status='pending' RETURNING job_id` — atomic single-statement optimistic lock. No `SELECT FOR UPDATE`, no transactions beyond the single statement. Exactly one mechanic wins per job.
+- **`job_broadcasts` closed out on accept** — the winning mechanic's row gets `responded=True, accepted=True`; all losing rows get `responded=True, accepted=False`. Done in the same DB connection, same transaction as the job UPDATE.
+- **`cash_amount` validated server-side** — must be ≥ 0 at `/jobs/:id/complete`. Negative values return 400.
+- **`PATCH /jobs/:id/complete` guards** — only the job's assigned mechanic (matched by `g.auth['id']`) may mark complete; calling on a non-accepted job returns 400.
+
+## New Decisions (Stage 4 — complete)
+
+- **Socket.IO `async_mode='threading'`** — single global `SocketIO` instance created at module level in `app.py`, `init_app()`-ed inside `create_app()`, stored in `app.extensions['socketio']` for route access.
+- **`register_socket_events()` idempotency** — handlers registered once per `socketio` instance via inner closures. Flask-SocketIO deduplicates at the server level; calling `create_app()` twice (tests) does not double-register.
+- **Stable rooms over ephemeral SIDs** — on connect, drivers join `driver_{user_id}` and mechanics join `mechanic_{mechanic_id}`. REST handlers emit to these rooms with `socketio.emit(..., room=...)` — never raw SIDs.
+- **`active_jobs` dict** — in-process dict `{job_id: {driver_sid, mechanic_sid}}` populated by `rejoin_job` event and referenced by `mechanic_location` for forwarding pings. No DB reads for GPS forwarding.
+- **Distance formula** — Spherical Law of Cosines: `R * acos(sin(lat1)*sin(lat2) + cos(lat1)*cos(lat2)*cos(Δlng))`. Not Haversine. Accurate to ±1 m at 771 m baseline.
+- **GPS pings are not written to DB** — `mechanic_location` events compute distance in memory and emit `location_update` to the driver's room. Zero `mri_events` rows written per ping.
+- **`emit_match_confirmed` fires after DB commit** — called from `job.py` inside a separate `try/except` after the `with get_db()` block closes. A socket failure never rolls back the accepted job.
+- **`/socket-status` route** — `GET`, no auth. Returns `{"connected_jobs": len(active_jobs)}`. For demo-day debugging only. Defined in `app.py`, imports `active_jobs` at call time to avoid circular imports.
+- **51 tests across Stages 2–4** — Stage 4 has 16 tests (10 AC-labelled spec tests + 6 additional edge/regression cases). All 51 pass.
 
 ---
 

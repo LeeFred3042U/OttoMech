@@ -29,6 +29,13 @@ def create_app():
     def health():
         return jsonify({"status": "ok", "service": "ottomech"})
 
+    @app.route("/socket-status", methods=["GET"])
+    def socket_status():
+        """Debug endpoint: returns count of jobs currently tracked in active_jobs.
+        No auth required — for use on demo day only."""
+        from routes.socket_events import active_jobs
+        return jsonify({"connected_jobs": len(active_jobs)})
+
     # Wire SocketIO to this Flask app instance and register event handlers.
     # We must use the global socketio instance for tests that import app.socketio,
     # but re-init is safe if we don't re-register handlers.
