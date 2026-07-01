@@ -1,5 +1,7 @@
-import os
+import eventlet
+eventlet.monkey_patch()
 
+import os
 from dotenv import load_dotenv
 from flask import Flask, jsonify, render_template
 from flask_socketio import SocketIO
@@ -14,7 +16,7 @@ load_dotenv()
 
 # We will instantiate socketio inside create_app for test isolation.
 # Or we can export a dummy global if needed by extensions, but it's better to attach it to app.
-socketio = SocketIO(async_mode="threading", cors_allowed_origins="*")
+socketio = SocketIO(cors_allowed_origins="*")
 
 
 def create_app():
@@ -31,7 +33,7 @@ def create_app():
 
     @app.route("/", methods=["GET"])
     def index():
-        return jsonify({"message": "Backend is running."})
+        return render_template("index.html")
 
     @app.route("/health", methods=["GET"])
     def health():

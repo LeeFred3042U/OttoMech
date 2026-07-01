@@ -433,7 +433,7 @@ def verify_otp():
                     cur.execute(
                         """
                         UPDATE users
-                        SET last_login = NOW()
+                        SET last_login = NOW(), email_verified = TRUE
                         WHERE email = %s
                         RETURNING user_id;
                         """,
@@ -447,7 +447,7 @@ def verify_otp():
                     cur.execute(
                         """
                         UPDATE mechanics
-                        SET last_login = NOW()
+                        SET last_login = NOW(), email_verified = TRUE
                         WHERE email = %s
                         RETURNING mechanic_id;
                         """,

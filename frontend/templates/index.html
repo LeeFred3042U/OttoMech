@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Home | OttoMech{% endblock %}
+
+{% block content %}
+<div class="landing-container" style="text-align: center; padding: 40px 20px;">
+    <h1 style="font-size: 2.5rem; color: #333; margin-bottom: 20px;">Welcome to OttoMech</h1>
+    <p style="font-size: 1.2rem; color: #666; margin-bottom: 40px;">The fastest way to get your car fixed. Anywhere, anytime.</p>
+    
+    <div class="action-buttons" style="display: flex; flex-direction: column; gap: 20px; align-items: center;">
+        <a href="/register/user" style="display: inline-block; padding: 15px 30px; background: linear-gradient(135deg, #007bff, #0056b3); color: white; text-decoration: none; border-radius: 50px; font-weight: 600; font-size: 1.1rem; width: 100%; max-width: 300px; box-shadow: 0 4px 15px rgba(0,123,255,0.3); transition: transform 0.2s ease, box-shadow 0.2s ease;">
+            I need a Mechanic
+        </a>
+        <a href="/register/mechanic" style="display: inline-block; padding: 15px 30px; background: linear-gradient(135deg, #28a745, #1e7e34); color: white; text-decoration: none; border-radius: 50px; font-weight: 600; font-size: 1.1rem; width: 100%; max-width: 300px; box-shadow: 0 4px 15px rgba(40,167,69,0.3); transition: transform 0.2s ease, box-shadow 0.2s ease;">
+            I am a Mechanic
+        </a>
+    </div>
+</div>
+
+<style>
+.action-buttons a:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+}
+</style>
+{% endblock %}
