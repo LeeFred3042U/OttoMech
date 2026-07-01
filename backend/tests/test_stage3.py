@@ -51,12 +51,12 @@ def _unique_phone():
     return f"+9191{uuid.uuid4().hex[:8]}"
 
 
-def _read_otp_from_db(phone):
+def _read_otp_from_db(email):
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT otp_code FROM otp_store WHERE phone = %s;",
-                (phone,),
+                "SELECT otp_code FROM otp_store WHERE email = %s;",
+                (email,),
             )
             row = cur.fetchone()
             return row[0].strip() if row else None
@@ -64,16 +64,18 @@ def _read_otp_from_db(phone):
 
 def _register_and_verify_user(client, phone=None):
     phone = phone or _unique_phone()
+    email = f"user_{uuid.uuid4().hex[:8]}@example.com"
     resp = client.post("/auth/register/user", json={
-        "first_name": "Driver",
+        "first_name": "User",
         "last_name": "Test",
+        "email": email,
         "phone_number": phone,
         "country": "IN",
     })
     assert resp.status_code == 201, resp.get_json()
-    otp = _read_otp_from_db(phone)
+    otp = _read_otp_from_db(email)
     verify = client.post("/auth/verify-otp", json={
-        "phone_number": phone,
+        "email": email,
         "otp": otp,
         "role": "user",
     })
@@ -84,10 +86,12 @@ def _register_and_verify_user(client, phone=None):
 
 def _register_and_verify_mechanic(client, phone=None, **overrides):
     phone = phone or _unique_phone()
+    email = f"mech_{uuid.uuid4().hex[:8]}@example.com"
     payload = {
         "first_name": "Mech",
         "last_name": "Test",
         "gender": "male",
+        "email": email,
         "phone_number": phone,
         "country": "IN",
         "workshop_name": "Test Workshop",
@@ -99,9 +103,9 @@ def _register_and_verify_mechanic(client, phone=None, **overrides):
     payload.update(overrides)
     resp = client.post("/auth/register/mechanic", json=payload)
     assert resp.status_code == 201, resp.get_json()
-    otp = _read_otp_from_db(phone)
+    otp = _read_otp_from_db(email)
     verify = client.post("/auth/verify-otp", json={
-        "phone_number": phone,
+        "email": email,
         "otp": otp,
         "role": "mechanic",
     })

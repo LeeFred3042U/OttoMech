@@ -7,7 +7,7 @@
 
 ## What This Project Is
 
-OttoAssist is a PWA (no app install) that connects stranded drivers in Lucknow with nearby verified mechanics in under 5 minutes. Think Rapido/Uber/Porter/Ola but for roadside mechanic dispatch. Driver opens browser, registers, picks issue type, system finds nearest 3 mechanics via GPS, first to accept gets the job. Payment is cash on completion — no payment gateway in any stage.
+OttoAssist is a PWA (no app install) that connects stranded users in Lucknow with nearby verified mechanics in under 5 minutes. Think Rapido/Uber/Porter/Ola but for roadside mechanic dispatch. User opens browser, registers, picks issue type, system finds nearest 3 mechanics via GPS, first to accept gets the job. Payment is cash on completion — no payment gateway in any stage.
 
 **Tagline:** Your mechanic. One tap away.
 **Hackathon:** CODESLAYER2k25, DevSphere India, Open Innovation track.
@@ -34,13 +34,13 @@ OttoAssist is a PWA (no app install) that connects stranded drivers in Lucknow w
 | 1 | Flask + Neon DB foundation, basic auth routes, 5 seed garages | ✅ Complete |
 | 2 | **Registration overhaul**: UUID schema, full user/mechanic profiles, E.164 + country code OTP, 20-garage seed (10 real + 10 dummy) | ✅ Complete |
 | 3 | Core dispatch API: job broadcast to 3 mechanics, `job_broadcasts` table, auth middleware on protected routes | ✅ Complete |
-| 4 | Real-time: Socket.IO, mechanic GPS ping → driver map (Leaflet), `match_confirmed` event, `rejoin_job`, `socket-status` debug route | ✅ Complete |
-| 5 | Frontend (PWA): registration → OTP login → issue select → mechanic match, Leaflet map integrated | 🔄 Current |
-| 6 | Mechanic dashboard: registration flow, job accept UI, GPS emit loop | ⏳ |
+| 4 | Real-time: Socket.IO, mechanic GPS ping → user map (Leaflet), `match_confirmed` event, `rejoin_job`, `socket-status` debug route | ✅ Complete |
+| 5 | Frontend (PWA): registration → OTP login → issue select → mechanic match, Leaflet map integrated | ✅ Complete |
+| 6 | Mechanic dashboard: registration flow, job accept UI, GPS emit loop | 🔄 Current |
 | 7 | MRI scoring (ReportLab PDF receipt — cash amount entered manually by mechanic, no gateway) | ⏳ |
 | 8 | Demo polish: 8 garages live, offline mode, **live registration demo readiness** (this is the demo-day centerpiece) | ⏳ |
 
-**Never work ahead of the current stage.** Do not add Stage 6 features while in Stage 5.
+**Never work ahead of the current stage.** Do not add Stage 7 features while in Stage 6.
 
 ---
 
@@ -52,7 +52,7 @@ OttoAssist is a PWA (no app install) that connects stranded drivers in Lucknow w
 | Database | Neon PostgreSQL + PostGIS | Free tier, PostGIS for geo queries, no ORM complexity |
 | DB driver | psycopg2 (raw SQL) | PostGIS types are cleaner in raw SQL than ORM |
 | Primary keys | **UUID** (`gen_random_uuid()`, requires `pgcrypto` extension) | Matches required registration schema |
-| Real-time | Socket.IO (Stage 4) | Bidirectional — needed for both driver map AND in-app chat |
+| Real-time | Socket.IO (Stage 4) | Bidirectional — needed for both user map AND in-app chat |
 | Frontend | Vanilla JS PWA (single HTML file) | No build step, no npm, works on any browser, no install |
 | **Map** | **Leaflet.js + OpenStreetMap tile layer** | No API key, no billing, zero demo-day failure risk |
 | PDF | ReportLab (Python, server-side) | Free, no external service |
@@ -78,7 +78,7 @@ OttoAssist is a PWA (no app install) that connects stranded drivers in Lucknow w
 CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- for gen_random_uuid()
 CREATE EXTENSION IF NOT EXISTS postgis;
 
--- ═══════════════ USERS (drivers) ═══════════════
+-- ═══════════════ USERS ═══════════════
 CREATE TABLE IF NOT EXISTS users (
     user_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     first_name       VARCHAR(50) NOT NULL,
@@ -283,13 +283,24 @@ Server → Client (room-targeted):
 
 - **Socket.IO `async_mode='threading'`** — single global `SocketIO` instance created at module level in `app.py`, `init_app()`-ed inside `create_app()`, stored in `app.extensions['socketio']` for route access.
 - **`register_socket_events()` idempotency** — handlers registered once per `socketio` instance via inner closures. Flask-SocketIO deduplicates at the server level; calling `create_app()` twice (tests) does not double-register.
-- **Stable rooms over ephemeral SIDs** — on connect, drivers join `driver_{user_id}` and mechanics join `mechanic_{mechanic_id}`. REST handlers emit to these rooms with `socketio.emit(..., room=...)` — never raw SIDs.
+- **Stable rooms over ephemeral SIDs** — on connect, users join `driver_{user_id}` and mechanics join `mechanic_{mechanic_id}`. REST handlers emit to these rooms with `socketio.emit(..., room=...)` — never raw SIDs.
 - **`active_jobs` dict** — in-process dict `{job_id: {driver_sid, mechanic_sid}}` populated by `rejoin_job` event and referenced by `mechanic_location` for forwarding pings. No DB reads for GPS forwarding.
 - **Distance formula** — Spherical Law of Cosines: `R * acos(sin(lat1)*sin(lat2) + cos(lat1)*cos(lat2)*cos(Δlng))`. Not Haversine. Accurate to ±1 m at 771 m baseline.
-- **GPS pings are not written to DB** — `mechanic_location` events compute distance in memory and emit `location_update` to the driver's room. Zero `mri_events` rows written per ping.
+- **GPS pings are not written to DB** — `mechanic_location` events compute distance in memory and emit `location_update` to the user's room. Zero `mri_events` rows written per ping.
 - **`emit_match_confirmed` fires after DB commit** — called from `job.py` inside a separate `try/except` after the `with get_db()` block closes. A socket failure never rolls back the accepted job.
 - **`/socket-status` route** — `GET`, no auth. Returns `{"connected_jobs": len(active_jobs)}`. For demo-day debugging only. Defined in `app.py`, imports `active_jobs` at call time to avoid circular imports.
 - **51 tests across Stages 2–4** — Stage 4 has 16 tests (10 AC-labelled spec tests + 6 additional edge/regression cases). All 51 pass.
+
+## New Decisions (Stage 5 — complete)
+
+- **Deleted React/TypeScript frontend entirely** — Replaced with Jinja2 + Vanilla JS served directly by the Flask app (`render_template`).
+- **No Build Step** — Zero npm, package.json, or vite. Avoids multi-origin issues and redundant cold starts on Render.
+- **Unified Mobile-First Palette** — Light theme applied (white background, dark text, `#F5A623` accent). SVG logo asset `oLogo.svg` added.
+- **Email OTP via Gmail SMTP** — OTPs are now sent via email using Python's `smtplib`. `otp_store` is keyed by email. A terminal-print fallback is kept for demo robustness.
+- **Geolocation Mechanic Capture** — Mechanic registration captures coordinates silently via browser `navigator.geolocation` instead of typed lat/lng inputs. The values are optional in the API.
+- **`phone_verified` Static Default** — Since verification shifted to email, `phone_verified` is a static default `TRUE` inserted by DB rather than a verification gate.
+- **No LocalStorage Auth** — Tokens are kept strictly in JS variables per explicit instruction. State reset on reload.
+- **Client-Side Validations & Demo Mode OTP** — Inline form errors match `{error: "..."}` responses. OTP countdown is handled in JS (300s limit).
 
 ---
 

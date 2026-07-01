@@ -3,6 +3,8 @@ Stage 2 acceptance tests against AGENT.md spec.
 
 Uses Flask test client directly (app factory pattern).
 Requires DATABASE_URL in .env pointing to the Neon DB.
+
+Updated for Stage 5 Patch: OTP keyed on email, phone_verified defaults TRUE.
 """
 
 import os
@@ -45,10 +47,16 @@ def _unique_phone():
     return f"+9190{uuid.uuid4().hex[:8]}"
 
 
-def _register_user(client, phone=None, **overrides):
+def _unique_email():
+    """Generate a unique fake email to avoid collisions between tests."""
+    return f"test_{uuid.uuid4().hex[:8]}@example.com"
+
+
+def _register_user(client, phone=None, email=None, **overrides):
     payload = {
         "first_name": "Test",
         "last_name": "User",
+        "email": email or _unique_email(),
         "phone_number": phone or _unique_phone(),
         "country": "IN",
     }
@@ -56,11 +64,12 @@ def _register_user(client, phone=None, **overrides):
     return client.post("/auth/register/user", json=payload)
 
 
-def _register_mechanic(client, phone=None, **overrides):
+def _register_mechanic(client, phone=None, email=None, **overrides):
     payload = {
         "first_name": "Test",
         "last_name": "Mechanic",
         "gender": "male",
+        "email": email or _unique_email(),
         "phone_number": phone or _unique_phone(),
         "country": "IN",
         "workshop_name": "Test Workshop",
@@ -73,20 +82,21 @@ def _register_mechanic(client, phone=None, **overrides):
     return client.post("/auth/register/mechanic", json=payload)
 
 
-def _read_otp_from_db(phone):
-    """Read the OTP code directly from the otp_store table."""
+def _read_otp_from_db(email):
+    """Read the OTP code directly from the otp_store table (keyed on email)."""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT otp_code FROM otp_store WHERE phone = %s;",
-                (phone,),
+                "SELECT otp_code FROM otp_store WHERE email = %s;",
+                (email,),
             )
             row = cur.fetchone()
             return row[0].strip() if row else None
 
 
 def _get_phone_verified(role, phone):
-    """Read phone_verified from users or mechanics table."""
+    """Read phone_verified from users or mechanics table.
+    Note: phone_verified now defaults TRUE at insert time."""
     table = "users" if role == "user" else "mechanics"
     with get_db() as conn:
         with conn.cursor() as cur:
@@ -118,6 +128,7 @@ class TestRegisterUser:
         """400, error message names 'phone_number'."""
         resp = client.post("/auth/register/user", json={
             "first_name": "Test",
+            "email": _unique_email(),
             "country": "IN",
         })
         assert resp.status_code == 400
@@ -159,15 +170,15 @@ class TestRegisterMechanic:
                 assert row is not None
                 assert row[0] is False
 
-    def test_register_mechanic_invalid_lat(self, client):
-        """lat=999 → 400."""
-        resp = _register_mechanic(client, lat=999)
-        assert resp.status_code == 400
+    def test_register_mechanic_null_coords(self, client):
+        """lat=None, lng=None → 201 (geolocation denied scenario)."""
+        resp = _register_mechanic(client, lat=None, lng=None)
+        assert resp.status_code == 201, resp.get_json()
 
-    def test_register_mechanic_invalid_lng(self, client):
-        """lng=-999 → 400."""
-        resp = _register_mechanic(client, lng=-999)
-        assert resp.status_code == 400
+    def test_register_mechanic_invalid_coords_treated_as_null(self, client):
+        """lat=999 (out of range) → treated as null, still 201."""
+        resp = _register_mechanic(client, lat=999, lng=-999)
+        assert resp.status_code == 201, resp.get_json()
 
 
 # ---------------------------------------------------------------------------
@@ -226,10 +237,10 @@ class TestCountryValidation:
                 with conn.cursor() as cur:
                     cur.execute(
                         """
-                        INSERT INTO otp_store (phone, otp_code, purpose, expires_at)
+                        INSERT INTO otp_store (email, otp_code, purpose, expires_at)
                         VALUES (%s, %s, %s, %s);
                         """,
-                        ("+919999999999", "123456", "bogus", expires_at),
+                        ("test_constraint@example.com", "123456", "bogus", expires_at),
                     )
 
 
@@ -241,15 +252,16 @@ class TestVerifyOtp:
     def test_verify_otp_correct(self, client):
         """Register → read OTP from DB → verify → 200,
         session_token present, phone_verified true in DB."""
+        email = _unique_email()
         phone = _unique_phone()
-        reg_resp = _register_user(client, phone=phone)
+        reg_resp = _register_user(client, phone=phone, email=email)
         assert reg_resp.status_code == 201
 
-        otp = _read_otp_from_db(phone)
+        otp = _read_otp_from_db(email)
         assert otp is not None, "OTP was not stored in otp_store"
 
         verify_resp = client.post("/auth/verify-otp", json={
-            "phone_number": phone,
+            "email": email,
             "otp": otp,
             "role": "user",
         })
@@ -259,34 +271,35 @@ class TestVerifyOtp:
         assert vdata["role"] == "user"
         assert "id" in vdata
 
-        # DB assertion: phone_verified must be True
+        # phone_verified defaults TRUE at insert — verify it's still TRUE
         assert _get_phone_verified("user", phone) is True
 
     def test_verify_otp_wrong_code(self, client):
-        """Register → verify with '000000' → 401,
-        AND phone_verified still False in DB."""
+        """Register → verify with '000000' → 401."""
+        email = _unique_email()
         phone = _unique_phone()
-        reg_resp = _register_user(client, phone=phone)
+        reg_resp = _register_user(client, phone=phone, email=email)
         assert reg_resp.status_code == 201
 
         verify_resp = client.post("/auth/verify-otp", json={
-            "phone_number": phone,
+            "email": email,
             "otp": "000000",
             "role": "user",
         })
         assert verify_resp.status_code == 401
 
-        # DB assertion: phone_verified must still be False
-        assert _get_phone_verified("user", phone) is False
+        # phone_verified is TRUE by default (never changes)
+        assert _get_phone_verified("user", phone) is True
 
     def test_verify_otp_expired(self, client):
         """Register → backdate otp_store.expires_at → verify → 410,
         AND otp_store row deleted."""
+        email = _unique_email()
         phone = _unique_phone()
-        reg_resp = _register_user(client, phone=phone)
+        reg_resp = _register_user(client, phone=phone, email=email)
         assert reg_resp.status_code == 201
 
-        otp = _read_otp_from_db(phone)
+        otp = _read_otp_from_db(email)
         assert otp is not None
 
         # Backdate the OTP expiry
@@ -294,24 +307,24 @@ class TestVerifyOtp:
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "UPDATE otp_store SET expires_at = %s WHERE phone = %s;",
-                    (past, phone),
+                    "UPDATE otp_store SET expires_at = %s WHERE email = %s;",
+                    (past, email),
                 )
 
         verify_resp = client.post("/auth/verify-otp", json={
-            "phone_number": phone,
+            "email": email,
             "otp": otp,
             "role": "user",
         })
         assert verify_resp.status_code == 410
 
         # Assert the otp_store row was deleted after expiry
-        assert _read_otp_from_db(phone) is None
+        assert _read_otp_from_db(email) is None
 
     def test_verify_otp_invalid_role(self, client):
         """role='driver' → 400."""
         resp = client.post("/auth/verify-otp", json={
-            "phone_number": "+919999999999",
+            "email": "test@example.com",
             "otp": "123456",
             "role": "driver",
         })
@@ -368,6 +381,7 @@ class TestErrorHandling:
             mock_db.side_effect = RuntimeError("simulated DB failure")
             resp = client.post("/auth/register/user", json={
                 "first_name": "Test",
+                "email": _unique_email(),
                 "phone_number": "+919111111111",
                 "country": "IN",
             })
