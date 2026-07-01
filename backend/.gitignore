@@ -50,7 +50,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
-*.txt
+# *.txt  <-- Removed so requirements.txt is not ignored
 
 # Translations
 *.mo
