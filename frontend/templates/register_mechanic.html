@@ -33,6 +33,12 @@
         </div>
 
         <div class="field">
+            <label for="email">Email <span class="required">*</span></label>
+            <input type="email" id="email" name="email" placeholder="raju@example.com" required autocomplete="email">
+            <span class="field-error" id="err-email"></span>
+        </div>
+
+        <div class="field">
             <label for="phone_number">Phone Number <span class="required">*</span></label>
             <input type="tel" id="phone_number" name="phone_number" placeholder="+919988776655" required autocomplete="tel">
             <span class="field-error" id="err-phone_number"></span>
@@ -63,18 +69,8 @@
             <span class="field-error" id="err-zone"></span>
         </div>
 
-        <div class="field-row">
-            <div class="field">
-                <label for="lat">Latitude <span class="required">*</span></label>
-                <input type="text" id="lat" name="lat" placeholder="26.8467" required inputmode="decimal">
-                <span class="field-error" id="err-lat"></span>
-            </div>
-            <div class="field">
-                <label for="lng">Longitude <span class="required">*</span></label>
-                <input type="text" id="lng" name="lng" placeholder="80.9462" required inputmode="decimal">
-                <span class="field-error" id="err-lng"></span>
-            </div>
-        </div>
+        <div class="geo-notice" id="geo-notice" hidden></div>
+        <div class="geo-status" id="geo-status" hidden></div>
 
         <div class="form-error" id="register-error" role="alert"></div>
 
@@ -87,8 +83,8 @@
 
 <section class="card" id="step-otp" hidden>
     <h1>Verify OTP</h1>
-    <p class="subtitle">Enter the 6-digit code from the <strong>server terminal</strong></p>
-    <p class="otp-hint">🛠 Demo mode — OTP is printed in the backend terminal, not sent via SMS.</p>
+    <p class="subtitle">Enter the 6-digit code sent to your <strong>email</strong></p>
+    <p class="otp-hint">📧 Check your inbox (and spam folder). OTP is also printed in the server terminal for demo use.</p>
 
     <form id="otp-form" novalidate>
         <div class="field">
@@ -110,7 +106,7 @@
 <section class="card success-card" id="step-success" hidden>
     <div class="success-icon">✅</div>
     <h1>Registration Complete</h1>
-    <p class="subtitle">Your phone is verified. You'll receive job requests once your account is activated.</p>
+    <p class="subtitle">Your email is verified. You'll receive job requests once your account is activated.</p>
     <div class="token-display">
         <label>Session Token</label>
         <code id="session-token"></code>
@@ -127,10 +123,10 @@
         registerFormId: 'register-form',
         otpFormId: 'otp-form',
         endpoint: '/auth/register/mechanic',
-        fields: ['first_name', 'last_name', 'gender', 'phone_number', 'country',
-                 'workshop_name', 'address', 'zone', 'lat', 'lng'],
+        fields: ['first_name', 'last_name', 'gender', 'email', 'phone_number', 'country',
+                 'workshop_name', 'address', 'zone'],
         optionalFields: [],
-        coordFields: ['lat', 'lng'],
+        useGeolocation: true,
     });
 </script>
 {% endblock %}

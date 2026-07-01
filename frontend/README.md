@@ -38,7 +38,8 @@ frontend/
 
 ## Design
 
-- **Palette**: Background `#1C1C1E`, text `#F5F5F0`, accent `#F5A623`
+- **Palette**: Light theme (background `#FFFFFF` / `#F8F9FA`, text `#1C1C1E`, accent `#F5A623`)
 - **Font**: Inter (Google Fonts)
 - **Mobile-first**: max-width 420px container, touch-friendly inputs
+- **Assets**: `static/img/oLogo.svg` handles branding
 - **No frameworks**: vanilla CSS + vanilla JS

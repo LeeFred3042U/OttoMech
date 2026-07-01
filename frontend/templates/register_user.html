@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}Register — Driver | OttoAssist{% endblock %}
+{% block title %}Register — User | OttoAssist{% endblock %}
 
 {% block content %}
 <section class="card" id="step-register">
-    <h1>Driver Registration</h1>
+    <h1>User Registration</h1>
     <p class="subtitle">Create your account to request roadside help</p>
 
     <form id="register-form" novalidate>
@@ -16,6 +16,12 @@
         <div class="field">
             <label for="last_name">Last Name</label>
             <input type="text" id="last_name" name="last_name" placeholder="Sharma" autocomplete="family-name">
+        </div>
+
+        <div class="field">
+            <label for="email">Email <span class="required">*</span></label>
+            <input type="email" id="email" name="email" placeholder="priya@example.com" required autocomplete="email">
+            <span class="field-error" id="err-email"></span>
         </div>
 
         <div class="field">
@@ -42,8 +48,8 @@
 
 <section class="card" id="step-otp" hidden>
     <h1>Verify OTP</h1>
-    <p class="subtitle">Enter the 6-digit code from the <strong>server terminal</strong></p>
-    <p class="otp-hint">🛠 Demo mode — OTP is printed in the backend terminal, not sent via SMS.</p>
+    <p class="subtitle">Enter the 6-digit code sent to your <strong>email</strong></p>
+    <p class="otp-hint">📧 Check your inbox (and spam folder). OTP is also printed in the server terminal for demo use.</p>
 
     <form id="otp-form" novalidate>
         <div class="field">
@@ -65,7 +71,7 @@
 <section class="card success-card" id="step-success" hidden>
     <div class="success-icon">✅</div>
     <h1>Registration Complete</h1>
-    <p class="subtitle">Your phone is verified. You're ready to request help.</p>
+    <p class="subtitle">Your email is verified. You're ready to request help.</p>
     <div class="token-display">
         <label>Session Token</label>
         <code id="session-token"></code>
@@ -82,7 +88,7 @@
         registerFormId: 'register-form',
         otpFormId: 'otp-form',
         endpoint: '/auth/register/user',
-        fields: ['first_name', 'phone_number', 'country'],
+        fields: ['first_name', 'email', 'phone_number', 'country'],
         optionalFields: ['last_name'],
     });
 </script>

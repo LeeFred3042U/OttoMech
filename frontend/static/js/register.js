@@ -2,19 +2,23 @@
    OttoAssist — register.js
    Shared registration + OTP verification logic.
    No localStorage/sessionStorage. All state in JS variables.
+   OTP keyed on email, not phone. Geolocation for mechanics.
    ═══════════════════════════════════════════════════════════ */
 
 var OttoRegister = (function () {
     'use strict';
 
     // ── State (memory only, never persisted) ─────────────────
-    var _phoneNumber = '';
+    var _email = '';
     var _role = '';
     var _countdownInterval = null;
     var _inflight = false;
 
     // ── DOM refs (set during init) ───────────────────────────
     var _els = {};
+
+    // ── Email validation regex ───────────────────────────────
+    var _emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     // ── Public: init ─────────────────────────────────────────
     function init(cfg) {
@@ -31,6 +35,8 @@ var OttoRegister = (function () {
         _els.btnVerify = document.getElementById('btn-verify');
         _els.countdown = document.getElementById('otp-countdown');
         _els.sessionToken = document.getElementById('session-token');
+        _els.geoNotice = document.getElementById('geo-notice');
+        _els.geoStatus = document.getElementById('geo-status');
 
         _els.registerForm.addEventListener('submit', function (e) {
             e.preventDefault();
@@ -68,32 +74,65 @@ var OttoRegister = (function () {
         }
         if (missing.length > 0) return;
 
-        // Client-side coordinate validation (mechanic only)
-        if (cfg.coordFields) {
-            for (var k = 0; k < cfg.coordFields.length; k++) {
-                var coordKey = cfg.coordFields[k];
-                var val = data[coordKey];
-                if (val === '' || isNaN(Number(val))) {
-                    _showFieldError(coordKey, 'Must be a valid number');
-                    return;
-                }
-                var num = Number(val);
-                if (coordKey === 'lat' && (num < -90 || num > 90)) {
-                    _showFieldError(coordKey, 'Latitude must be between -90 and 90');
-                    return;
-                }
-                if (coordKey === 'lng' && (num < -180 || num > 180)) {
-                    _showFieldError(coordKey, 'Longitude must be between -180 and 180');
-                    return;
-                }
-                // Send as number, not string
-                data[coordKey] = num;
-            }
+        // Client-side email validation
+        if (data.email && !_emailRe.test(data.email)) {
+            _showFieldError('email', 'Enter a valid email address');
+            return;
         }
 
-        _phoneNumber = data.phone_number;
+        _email = data.email;
+
+        // If geolocation is needed (mechanic), capture it before POST
+        if (cfg.useGeolocation) {
+            _captureGeolocationAndSubmit(cfg, data);
+        } else {
+            _submitRegistration(cfg, data);
+        }
+    }
+
+    // ── Geolocation capture ──────────────────────────────────
+    function _captureGeolocationAndSubmit(cfg, data) {
+        if (!navigator.geolocation) {
+            // Geolocation not supported — proceed without
+            data.lat = null;
+            data.lng = null;
+            _showGeoNotice('Location not available — your browser does not support geolocation. You can update your location later from the dashboard.');
+            _submitRegistration(cfg, data);
+            return;
+        }
+
+        // Show loading state
+        _showGeoStatus('Getting your location…');
+        _setBtnLoading(_els.btnRegister, true);
+
+        navigator.geolocation.getCurrentPosition(
+            function (pos) {
+                // Success
+                data.lat = pos.coords.latitude;
+                data.lng = pos.coords.longitude;
+                _hideGeoStatus();
+                _submitRegistration(cfg, data);
+            },
+            function () {
+                // Denied or error
+                data.lat = null;
+                data.lng = null;
+                _hideGeoStatus();
+                _showGeoNotice('Location not set — enable location access later from your dashboard to appear in nearby search.');
+                _submitRegistration(cfg, data);
+            },
+            { timeout: 5000, enableHighAccuracy: false }
+        );
+    }
+
+    // ── Submit registration POST ─────────────────────────────
+    function _submitRegistration(cfg, data) {
         _postJSON(cfg.endpoint, data, _els.btnRegister, _els.registerError, function (body) {
-            // Success — show OTP step
+            // Check if email delivery failed
+            if (body.email_delivery === 'failed') {
+                _showEmailWarning('Email delivery failed — check the server terminal for your OTP code.');
+            }
+            // Show OTP step
             _els.stepRegister.hidden = true;
             _els.stepOtp.hidden = false;
             _startCountdown(body.expires_in_seconds || 300);
@@ -113,7 +152,7 @@ var OttoRegister = (function () {
         }
 
         var payload = {
-            phone_number: _phoneNumber,
+            email: _email,
             otp: otp,
             role: _role,
         };
@@ -194,6 +233,35 @@ var OttoRegister = (function () {
         _els.countdown.classList.remove('expired');
     }
 
+    // ── Geolocation UI helpers ───────────────────────────────
+    function _showGeoNotice(msg) {
+        if (_els.geoNotice) {
+            _els.geoNotice.textContent = msg;
+            _els.geoNotice.hidden = false;
+        }
+    }
+
+    function _showGeoStatus(msg) {
+        if (_els.geoStatus) {
+            _els.geoStatus.textContent = msg;
+            _els.geoStatus.hidden = false;
+        }
+    }
+
+    function _hideGeoStatus() {
+        if (_els.geoStatus) {
+            _els.geoStatus.hidden = true;
+        }
+    }
+
+    function _showEmailWarning(msg) {
+        var el = document.getElementById('otp-error');
+        if (el) {
+            el.textContent = msg;
+            el.className = 'form-error email-warning';
+        }
+    }
+
     // ── Error display helpers ────────────────────────────────
     function _showFieldError(fieldId, msg) {
         var errEl = document.getElementById('err-' + fieldId);
@@ -217,12 +285,10 @@ var OttoRegister = (function () {
     }
 
     function _clearAllErrors() {
-        // Clear field errors
         var fieldErrors = document.querySelectorAll('.field-error');
         for (var i = 0; i < fieldErrors.length; i++) {
             fieldErrors[i].textContent = '';
         }
-        // Remove has-error class
         var errorFields = document.querySelectorAll('.has-error');
         for (var j = 0; j < errorFields.length; j++) {
             errorFields[j].classList.remove('has-error');
