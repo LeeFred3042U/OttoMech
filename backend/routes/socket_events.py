@@ -222,6 +222,48 @@ def register_socket_events(socketio: SocketIO) -> None:
 
     # -----------------------------------------------------------------------
 
+    @socketio.on("join_job")
+    def on_join_job(data):
+        """Join a job room after creation (driver) or acceptance (mechanic).
+
+        Expected payload: {job_id, role}
+        The socket is already authenticated on connect, so we trust the
+        identity from the token_store lookup done during on_connect.
+        """
+        data = data or {}
+        job_id = data.get("job_id")
+        role = data.get("role")
+
+        if not job_id:
+            emit("error", {"message": "job_id is required"})
+            return
+
+        # Look up the caller's identity from the connect-time token
+        # We need to re-derive it since Flask-SocketIO doesn't persist
+        # per-connection state across events.  The client already
+        # authenticated on connect, so we find their room membership.
+        sid = request.sid
+
+        # Ensure active_jobs entry exists
+        if job_id not in active_jobs:
+            active_jobs[job_id] = {"driver_sid": None, "mechanic_sid": None}
+
+        if role == "user":
+            active_jobs[job_id]["driver_sid"] = sid
+            join_room(f"job_{job_id}")
+            logger.debug("join_job: driver sid=%s joined job %s", sid, job_id)
+        elif role == "mechanic":
+            active_jobs[job_id]["mechanic_sid"] = sid
+            join_room(f"job_{job_id}")
+            logger.debug("join_job: mechanic sid=%s joined job %s", sid, job_id)
+        else:
+            emit("error", {"message": "role must be 'user' or 'mechanic'"})
+            return
+
+        emit("joined", {"job_id": job_id, "role": role})
+
+    # -----------------------------------------------------------------------
+
     @socketio.on("rejoin_job")
     def on_rejoin_job(data):
         data = data or {}

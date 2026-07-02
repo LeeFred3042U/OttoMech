@@ -1,9 +1,10 @@
 # curl example:
 # curl "http://localhost:5000/mechanics/nearby?lat=26.8550&lng=80.9400&radius_km=15"
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 
 from db import get_db
+from routes.auth import require_auth
 from routes.common import db_error_response
 
 mechanic_bp = Blueprint("mechanic", __name__, url_prefix="/mechanics")
@@ -88,3 +89,49 @@ def nearby_mechanics():
         "query": {"lat": lat, "lng": lng, "radius_km": radius_km},
         "mechanics": mechanics,
     })
+
+
+@mechanic_bp.route("/<mechanic_id>/availability", methods=["PATCH"])
+@require_auth
+def update_availability(mechanic_id):
+    """Toggle a mechanic's is_available status.
+
+    Auth: require_auth, must be mechanic role, token must match mechanic_id.
+    Body: {is_available: bool}
+    Returns: 200 {mechanic_id, is_available} or 403 on mismatch.
+    """
+    if g.auth["role"] != "mechanic":
+        return jsonify({"error": "Authentication required"}), 401
+
+    if g.auth["id"] != mechanic_id:
+        return jsonify({"error": "Token does not match mechanic_id"}), 403
+
+    data = request.get_json(silent=True) or {}
+    is_available = data.get("is_available")
+
+    if is_available is None or not isinstance(is_available, bool):
+        return jsonify({"error": "is_available must be a boolean"}), 400
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE mechanics
+                    SET is_available = %s
+                    WHERE mechanic_id = %s
+                    RETURNING mechanic_id, is_available;
+                    """,
+                    (is_available, mechanic_id),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return jsonify({"error": "Mechanic not found"}), 404
+    except Exception:
+        return db_error_response()
+
+    return jsonify({
+        "mechanic_id": str(row[0]),
+        "is_available": row[1],
+    }), 200
+

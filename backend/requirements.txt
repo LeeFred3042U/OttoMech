@@ -6,3 +6,4 @@ flask-socketio==5.3.6
 # async_mode="threading" is used in development and tests (no monkey-patching needed).
 eventlet==0.35.2
 gunicorn==22.0.0
+reportlab>=4.0.0

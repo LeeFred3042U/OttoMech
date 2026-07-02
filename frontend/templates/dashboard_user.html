@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Driver | OttoMech{% endblock %}
+
+{% block content %}
+<!-- ── Step 1: Issue Selector ─────────────────────────────── -->
+<section id="step-issue" class="step-container">
+    <div class="card">
+        <h1>What's the problem?</h1>
+        <p class="subtitle">Select your issue type and we'll find help nearby</p>
+
+        <div class="issue-grid" id="issue-grid">
+            <button class="issue-card" data-issue="flat_tyre" type="button">
+                <span class="issue-icon">🛞</span>
+                <span class="issue-label">Flat Tyre</span>
+            </button>
+            <button class="issue-card" data-issue="battery" type="button">
+                <span class="issue-icon">🔋</span>
+                <span class="issue-label">Battery</span>
+            </button>
+            <button class="issue-card" data-issue="engine" type="button">
+                <span class="issue-icon">⚙️</span>
+                <span class="issue-label">Engine</span>
+            </button>
+            <button class="issue-card" data-issue="overheating" type="button">
+                <span class="issue-icon">🌡️</span>
+                <span class="issue-label">Overheating</span>
+            </button>
+            <button class="issue-card" data-issue="other" type="button">
+                <span class="issue-icon">🔧</span>
+                <span class="issue-label">Other</span>
+            </button>
+        </div>
+
+        <div class="field" style="margin-top: 1rem;">
+            <label for="photo-upload">Photo (optional, max 1 MB)</label>
+            <input type="file" id="photo-upload" accept="image/*" class="photo-upload-input">
+            <span class="field-error" id="err-photo"></span>
+        </div>
+
+        <div class="geo-warning" id="geo-warning" hidden>
+            <span>⚠️ Location access needed to find nearby mechanics</span>
+            <div class="field-row" style="margin-top: 0.5rem;">
+                <div class="field">
+                    <label for="manual-lat">Lat</label>
+                    <input type="number" id="manual-lat" step="any" placeholder="26.8550">
+                </div>
+                <div class="field">
+                    <label for="manual-lng">Lng</label>
+                    <input type="number" id="manual-lng" step="any" placeholder="80.9400">
+                </div>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="btn-find" disabled>
+            <span class="btn-text">Find Mechanic</span>
+            <span class="btn-loading" hidden>Finding…</span>
+        </button>
+    </div>
+</section>
+
+<!-- ── Step 2: Searching ─────────────────────────────────── -->
+<section id="step-searching" class="step-container" hidden>
+    <div class="card">
+        <h1>Finding mechanics…</h1>
+        <p class="subtitle">Searching for available mechanics near you</p>
+        <div class="map-container" id="map-searching"></div>
+        <div class="searching-pulse">
+            <div class="pulse-dot"></div>
+            <span>Looking for nearby mechanics…</span>
+        </div>
+        <p class="no-mechanics-msg" id="no-mechanics-msg" hidden>
+            No mechanics available nearby right now. We'll keep looking.
+        </p>
+    </div>
+</section>
+
+<!-- ── Step 3: Mechanic Found Card ───────────────────────── -->
+<section id="step-matched" class="step-container" hidden>
+    <div class="card">
+        <h1>Mechanic Found! 🎉</h1>
+        <div class="mechanic-info-card" id="mechanic-card">
+            <div class="mechanic-info-row">
+                <div class="mechanic-avatar">🔧</div>
+                <div class="mechanic-details">
+                    <h2 id="mech-name">—</h2>
+                    <p id="mech-workshop">—</p>
+                </div>
+            </div>
+            <div class="mechanic-stats">
+                <div class="stat">
+                    <span class="stat-value" id="mech-mri">—</span>
+                    <span class="stat-label">MRI Score</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value" id="mech-distance">—</span>
+                    <span class="stat-label">Distance</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value" id="mech-eta">—</span>
+                    <span class="stat-label">ETA</span>
+                </div>
+            </div>
+            <a id="mech-phone-link" class="btn btn-primary" style="text-decoration:none; text-align:center; margin-top: 1rem;">
+                📞 Call Mechanic
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- ── Step 4: Live Tracking ─────────────────────────────── -->
+<section id="step-tracking" class="step-container" hidden>
+    <div class="card">
+        <h1>Mechanic is on the way</h1>
+        <div class="eta-badge" id="eta-badge">ETA: — min</div>
+        <div class="map-container" id="map-tracking"></div>
+        <div class="mechanic-info-card" id="tracking-mechanic-card">
+            <div class="mechanic-info-row">
+                <div class="mechanic-avatar">🔧</div>
+                <div class="mechanic-details">
+                    <h2 id="track-mech-name">—</h2>
+                    <p id="track-mech-workshop">—</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── Step 5: Job Complete ──────────────────────────────── -->
+<section id="step-complete" class="step-container" hidden>
+    <div class="card success-card">
+        <div class="success-icon">✅</div>
+        <h1>Job Complete</h1>
+        <p class="subtitle">Your mechanic has finished the job</p>
+        <div class="receipt-card">
+            <div class="receipt-row">
+                <span class="receipt-label">Cash Amount</span>
+                <span class="receipt-value" id="complete-cash">₹—</span>
+            </div>
+        </div>
+        <button class="btn btn-primary" id="btn-download-receipt" style="margin-top: 1rem;">
+            <span class="btn-text">Download Receipt</span>
+            <span class="btn-loading" hidden>Downloading…</span>
+        </button>
+        <a href="/" class="btn" style="margin-top: 0.75rem; background: #F5F5F0; color: #1C1C1E; border: 1px solid #E5E5EA; text-align: center; text-decoration: none;">Back to Home</a>
+    </div>
+</section>
+
+<!-- ── Reconnecting Banner ───────────────────────────────── -->
+<div class="reconnecting-banner" id="reconnect-banner" hidden>
+    Live updates paused — reconnecting…
+</div>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<script src="{{ url_for('static', filename='js/dashboard_user.js') }}"></script>
+{% endblock %}

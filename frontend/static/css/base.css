@@ -611,7 +611,485 @@ body {
     to { transform: rotate(360deg); }
 }
 
+/* ── Dashboard Steps ─────────────────────────────────────── */
+.step-container {
+    animation: fadeSlideIn 0.35s ease-out;
+}
+
+/* ── Issue Grid ──────────────────────────────────────────── */
+.issue-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+}
+
+.issue-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 1rem 0.5rem;
+    background: #FFFFFF;
+    border: 2px solid #E5E5EA;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, transform 0.1s ease;
+    font-family: inherit;
+    font-size: inherit;
+    color: inherit;
+}
+
+.issue-card:hover {
+    border-color: #D1D1D6;
+}
+
+.issue-card:active {
+    transform: scale(0.97);
+}
+
+.issue-card.selected {
+    border-color: #F5A623;
+    background: rgba(245, 166, 35, 0.05);
+    box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.12);
+}
+
+.issue-icon {
+    font-size: 1.6rem;
+}
+
+.issue-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    text-align: center;
+    color: #48484A;
+}
+
+/* ── Map Containers ──────────────────────────────────────── */
+.map-container {
+    width: 100%;
+    height: 280px;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid #E5E5EA;
+    margin-bottom: 1rem;
+}
+
+.map-thumbnail {
+    width: 100%;
+    height: 140px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid #E5E5EA;
+    margin: 0.5rem 0;
+}
+
+/* ── Mechanic Info Card ──────────────────────────────────── */
+.mechanic-info-card {
+    background: #FFFFFF;
+    border: 1px solid #E5E5EA;
+    border-radius: 12px;
+    padding: 1rem;
+    animation: fadeSlideIn 0.35s ease-out;
+}
+
+.mechanic-info-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.mechanic-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: #F5F5F0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    flex-shrink: 0;
+    border: 2px solid #E5E5EA;
+}
+
+.mechanic-details h2 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 0.1rem;
+}
+
+.mechanic-details p {
+    font-size: 0.8rem;
+    color: #6E6E73;
+}
+
+.mechanic-stats {
+    display: flex;
+    justify-content: space-around;
+    padding: 0.75rem 0;
+    border-top: 1px solid #E5E5EA;
+}
+
+.stat {
+    text-align: center;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #1C1C1E;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.7rem;
+    color: #8E8E93;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+/* ── ETA Badge ───────────────────────────────────────────── */
+.eta-badge {
+    display: inline-block;
+    background: #F5A623;
+    color: #FFFFFF;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 0.4rem 1rem;
+    border-radius: 20px;
+    margin-bottom: 0.75rem;
+    animation: fadeSlideIn 0.25s ease-out;
+}
+
+/* ── Searching Pulse ─────────────────────────────────────── */
+.searching-pulse {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem;
+    color: #6E6E73;
+    font-size: 0.9rem;
+}
+
+.pulse-dot {
+    width: 10px;
+    height: 10px;
+    background: #F5A623;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+}
+
+/* ── Reconnecting Banner ─────────────────────────────────── */
+.reconnecting-banner {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(245, 166, 35, 0.95);
+    color: #FFFFFF;
+    text-align: center;
+    padding: 0.6rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    z-index: 1000;
+    animation: fadeSlideIn 0.25s ease-out;
+}
+
+/* ── Geo Warning ─────────────────────────────────────────── */
+.geo-warning {
+    background: rgba(245, 166, 35, 0.08);
+    border: 1px solid rgba(245, 166, 35, 0.2);
+    border-radius: 10px;
+    padding: 0.6rem 0.85rem;
+    margin-bottom: 1rem;
+    color: #E65100;
+    font-size: 0.85rem;
+}
+
+/* ── Photo Upload ────────────────────────────────────────── */
+.photo-upload-input {
+    width: 100%;
+    padding: 0.5rem;
+    background: #FFFFFF;
+    border: 1.5px dashed #D1D1D6;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: #6E6E73;
+    cursor: pointer;
+}
+
+.photo-upload-input::-webkit-file-upload-button {
+    background: #F5A623;
+    color: #FFFFFF;
+    border: none;
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin-right: 0.5rem;
+}
+
+/* ── Receipt Card ────────────────────────────────────────── */
+.receipt-card {
+    background: #FFFFFF;
+    border: 1px solid #E5E5EA;
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.receipt-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+}
+
+.receipt-label {
+    font-size: 0.9rem;
+    color: #6E6E73;
+}
+
+.receipt-value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #1C1C1E;
+}
+
+/* ── Toast Message ───────────────────────────────────────── */
+.toast-message {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1C1C1E;
+    color: #FFFFFF;
+    padding: 0.6rem 1.2rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    z-index: 1001;
+    animation: fadeSlideIn 0.25s ease-out;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+/* ── No Mechanics Message ────────────────────────────────── */
+.no-mechanics-msg {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #E65100;
+    background: rgba(245, 166, 35, 0.08);
+    border: 1px solid rgba(245, 166, 35, 0.2);
+    border-radius: 10px;
+    padding: 0.6rem 0.85rem;
+    margin-top: 0.75rem;
+}
+
+/* ── Toggle Pill (Availability) ──────────────────────────── */
+.toggle-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.5rem 1rem;
+    background: #F5F5F0;
+    border: 2px solid #E5E5EA;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: background 0.2s ease, border-color 0.2s ease;
+    user-select: none;
+    margin: 1rem 0;
+}
+
+.toggle-pill.active {
+    background: rgba(52, 199, 89, 0.1);
+    border-color: #34C759;
+}
+
+.toggle-switch {
+    width: 36px;
+    height: 20px;
+    background: #D1D1D6;
+    border-radius: 10px;
+    position: relative;
+    transition: background 0.2s ease;
+    flex-shrink: 0;
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    top: 2px;
+    left: 2px;
+    transition: transform 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.toggle-pill.active .toggle-switch {
+    background: #34C759;
+}
+
+.toggle-pill.active .toggle-switch::after {
+    transform: translateX(16px);
+}
+
+.toggle-label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #1C1C1E;
+}
+
+.toggle-status {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #8E8E93;
+    margin-left: auto;
+}
+
+.toggle-pill.active .toggle-status {
+    color: #34C759;
+}
+
+/* ── Job Cards (Mechanic Incoming) ───────────────────────── */
+.job-card {
+    background: #FFFFFF;
+    border: 1px solid #E5E5EA;
+    border-radius: 12px;
+    padding: 0.85rem;
+    margin-bottom: 0.75rem;
+    animation: fadeSlideIn 0.3s ease-out;
+}
+
+.job-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.job-type {
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-transform: capitalize;
+    color: #1C1C1E;
+}
+
+.job-distance {
+    font-size: 0.8rem;
+    color: #6E6E73;
+}
+
+.job-card-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 0.5rem;
+}
+
+.btn-accept {
+    background: #34C759;
+    color: #FFFFFF;
+    border: none;
+    padding: 0.5rem 1.2rem;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.btn-accept:hover {
+    background: #2DB84D;
+}
+
+.btn-accept:active {
+    transform: scale(0.97);
+}
+
+/* ── Active Job ──────────────────────────────────────────── */
+.active-job-card {
+    background: #FFFFFF;
+    border: 1px solid #E5E5EA;
+    border-radius: 12px;
+    padding: 1rem;
+}
+
+.gps-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    color: #34C759;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.gps-dot {
+    width: 8px;
+    height: 8px;
+    background: #34C759;
+    border-radius: 50%;
+    animation: pulse 1.5s infinite;
+}
+
+.cash-input-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.cash-input-row input {
+    flex: 1;
+    padding: 0.55rem 0.75rem;
+    border: 1.5px solid #D1D1D6;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.9rem;
+}
+
+.cash-input-row input:focus {
+    outline: none;
+    border-color: #F5A623;
+}
+
+.btn-complete {
+    background: #F5A623;
+    color: #FFFFFF;
+    border: none;
+    padding: 0.55rem 1rem;
+    border-radius: 10px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn-complete:hover {
+    background: #E6981F;
+}
+
+/* ── Empty State ─────────────────────────────────────────── */
+.empty-state {
+    text-align: center;
+    color: #8E8E93;
+    font-size: 0.9rem;
+    padding: 1.5rem 0;
+}
+
 /* ── Utility: hidden attribute override ───────────────────── */
 [hidden] {
     display: none !important;
 }
+

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Login — Driver | OttoMech{% endblock %}
+
+{% block content %}
+<section class="card" id="step-email">
+    <h1>Driver Login</h1>
+    <p class="subtitle">Log in with your registered email to request help</p>
+
+    <form id="login-form" novalidate>
+        <div class="field">
+            <label for="email">Email <span class="required">*</span></label>
+            <input type="email" id="email" name="email" placeholder="priya@example.com" required autocomplete="email">
+            <span class="field-error" id="err-email"></span>
+        </div>
+
+        <div class="form-error" id="login-error" role="alert"></div>
+
+        <button type="submit" class="btn btn-primary" id="btn-login">
+            <span class="btn-text">Send OTP</span>
+            <span class="btn-loading" hidden>Sending…</span>
+        </button>
+    </form>
+
+    <p class="hint" style="text-align: center; margin-top: 1rem;">
+        Don't have an account? <a href="/register/user" style="color: #F5A623; font-weight: 500;">Register here</a>
+    </p>
+</section>
+
+<section class="card" id="step-otp" hidden>
+    <h1>Verify OTP</h1>
+    <p class="subtitle">Enter the 6-digit code sent to your <strong>email</strong></p>
+    <p class="otp-hint">📧 Check your inbox (and spam folder). OTP is also printed in the server terminal for demo use.</p>
+
+    <form id="otp-form" novalidate>
+        <div class="field">
+            <label for="otp">OTP Code</label>
+            <input type="text" id="otp" name="otp" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" required autocomplete="one-time-code">
+            <span class="field-error" id="err-otp"></span>
+        </div>
+
+        <div class="countdown" id="otp-countdown"></div>
+        <div class="form-error" id="otp-error" role="alert"></div>
+
+        <button type="submit" class="btn btn-primary" id="btn-verify">
+            <span class="btn-text">Verify & Login</span>
+            <span class="btn-loading" hidden>Verifying…</span>
+        </button>
+    </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/login.js') }}"></script>
+<script>
+    OttoLogin.init({
+        role: 'user',
+        loginEndpoint: '/auth/login/user',
+        verifyEndpoint: '/auth/verify-otp',
+        dashboardUrl: '/dashboard/user',
+    });
+</script>
+{% endblock %}

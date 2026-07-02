@@ -67,8 +67,8 @@ OttoMech is a PWA (no app install) that connects stranded users in Lucknow with 
 
 - Stored as **E.164**: `+91XXXXXXXXXX` (country code + 10-digit number, no spaces/dashes)
 - `country` column stores **ISO 3166-1 alpha-2** code (e.g. `IN`, `US`, `GB`) — set automatically based on the country the user selects at registration (one country picker drives both the dial code prefix and this column — do not ask for them separately)
-- OTP is sent to the full E.164 number and verifies phone ownership at registration time for both users and mechanics
-- `otp_store.phone` becomes the E.164 string as primary key
+- OTP is now sent to the user's **email** via Gmail SMTP (Stage 5 decision). `otp_store` is keyed by **email**, not phone.
+- **Country picker (Stage 5 status):** Currently a free-text `<input type="text" maxlength="2">` with a hint label. Stage 6+ should replace this with a `<select>` country list so the E.164 dial-code prefix auto-fills. For demo day judges can type `IN` manually — acceptable.
 
 ---
 
@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS users (
 
     -- Authentication
     password_hash    TEXT,                             -- nullable, only if email login added later
-    phone_verified   BOOLEAN DEFAULT FALSE,
+    phone_verified   BOOLEAN DEFAULT TRUE,     -- Stage 5: verification moved to email; phone_verified is always TRUE on insert and carries no gate logic
     email_verified   BOOLEAN DEFAULT FALSE,
     last_login       TIMESTAMPTZ,
     two_fa_enabled   BOOLEAN DEFAULT FALSE,
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS mechanics (
 
     -- Authentication
     password_hash    TEXT,
-    phone_verified   BOOLEAN DEFAULT FALSE,
+    phone_verified   BOOLEAN DEFAULT TRUE,     -- Stage 5: same as users — always TRUE on insert; email is the verification gate
     email_verified   BOOLEAN DEFAULT FALSE,
     last_login       TIMESTAMPTZ,
     two_fa_enabled   BOOLEAN DEFAULT FALSE,
@@ -137,9 +137,9 @@ CREATE TABLE IF NOT EXISTS mechanics (
 
 CREATE INDEX IF NOT EXISTS idx_mechanics_location ON mechanics USING GIST(location);
 
--- ═══════════════ OTP (shared by users + mechanics, keyed on E.164 phone) ═══════════════
+-- ═══════════════ OTP (shared by users + mechanics, keyed on email — Stage 5 change) ═══════════════
 CREATE TABLE IF NOT EXISTS otp_store (
-    phone        VARCHAR(20) PRIMARY KEY,    -- E.164
+    email        VARCHAR(255) PRIMARY KEY,   -- keyed on email since Stage 5 (was E.164 phone in Stage 4)
     otp_code     CHAR(6) NOT NULL,
     purpose      VARCHAR(20) DEFAULT 'login', -- 'registration' | 'login'
     expires_at   TIMESTAMPTZ NOT NULL
@@ -281,7 +281,11 @@ Server → Client (room-targeted):
 
 ## New Decisions (Stage 4 — complete)
 
-- **Socket.IO `async_mode='threading'`** — single global `SocketIO` instance created at module level in `app.py`, `init_app()`-ed inside `create_app()`, stored in `app.extensions['socketio']` for route access.
+- **Socket.IO async_mode — two environments, intentionally different:**
+  - **Production (Railway/Render):** `eventlet` — `app.py` monkey-patches at startup (`import eventlet; eventlet.monkey_patch()`), gunicorn runs with `--worker-class eventlet -w 1`. Python is pinned to **3.11** because eventlet breaks on 3.12+.
+  - **Tests (Flask test client):** implicitly uses `threading` because the test client bypasses gunicorn entirely. Do not add `async_mode='eventlet'` to the `SocketIO()` constructor — it would break the test client.
+  - This split is intentional and acceptable. Do not collapse it. If Stage 6+ introduces async behaviour, test both paths.
+  - Single global `SocketIO` instance created at module level in `app.py`, `init_app()`-ed inside `create_app()`, stored in `app.extensions['socketio']` for route access.
 - **`register_socket_events()` idempotency** — handlers registered once per `socketio` instance via inner closures. Flask-SocketIO deduplicates at the server level; calling `create_app()` twice (tests) does not double-register.
 - **Stable rooms over ephemeral SIDs** — on connect, users join `driver_{user_id}` and mechanics join `mechanic_{mechanic_id}`. REST handlers emit to these rooms with `socketio.emit(..., room=...)` — never raw SIDs.
 - **`active_jobs` dict** — in-process dict `{job_id: {driver_sid, mechanic_sid}}` populated by `rejoin_job` event and referenced by `mechanic_location` for forwarding pings. No DB reads for GPS forwarding.
