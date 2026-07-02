@@ -1,51 +1,30 @@
 {% extends "base.html" %}
-{% block title %}Register — User | OttoMech{% endblock %}
+{% block title %}Login — User | OttoMech{% endblock %}
 
 {% block content %}
-<section class="auth-container" id="step-register">
+<section class="auth-container" id="step-email">
     <div class="auth-header">
-        <h1>User Registration</h1>
-        <p>Create your account to request roadside help</p>
+        <h1>Welcome back</h1>
+        <p>Enter your email to continue</p>
     </div>
 
-    <form id="register-form" novalidate>
+    <form id="login-form" novalidate>
         <div class="auth-field">
-            <label for="first_name">First Name <span class="required">*</span></label>
-            <input type="text" id="first_name" name="first_name" placeholder="Priya" required autocomplete="given-name">
-            <span class="field-error" id="err-first_name"></span>
-        </div>
-
-        <div class="auth-field">
-            <label for="last_name">Last Name</label>
-            <input type="text" id="last_name" name="last_name" placeholder="Sharma" autocomplete="family-name">
-        </div>
-
-        <div class="auth-field">
-            <label for="email">Email <span class="required">*</span></label>
-            <input type="email" id="email" name="email" placeholder="priya@example.com" required autocomplete="email">
+            <input type="email" id="email" name="email" placeholder="your@email.com" required autocomplete="email">
             <span class="field-error" id="err-email"></span>
         </div>
 
-        <div class="auth-field">
-            <label for="phone_number">Phone Number <span class="required">*</span></label>
-            <input type="tel" id="phone_number" name="phone_number" placeholder="+919876543210" required autocomplete="tel">
-            <span class="field-error" id="err-phone_number"></span>
-        </div>
+        <div class="form-error" id="login-error" role="alert"></div>
 
-        <div class="auth-field">
-            <label for="country">Country Code <span class="required">*</span></label>
-            <input type="text" id="country" name="country" placeholder="IN" maxlength="2" required autocomplete="country">
-            <span class="hint">2-letter code (IN, US, GB…). Server normalizes to uppercase.</span>
-            <span class="field-error" id="err-country"></span>
-        </div>
-
-        <div class="form-error" id="register-error" role="alert"></div>
-
-        <button type="submit" class="btn-black" id="btn-register">
-            <span class="btn-text">Send OTP</span>
+        <button type="submit" class="btn-black" id="btn-login">
+            <span class="btn-text">Continue</span>
             <span class="btn-loading" hidden>Sending…</span>
         </button>
     </form>
+
+    <div class="auth-footer">
+        New to OttoMech? <a href="/register/user">Sign up</a>
+    </div>
 </section>
 
 <section class="auth-container" id="step-otp" hidden>
@@ -54,6 +33,7 @@
         <p>We sent a 6-digit code to <strong id="display-email">your email</strong></p>
     </div>
     
+    <!-- Shown if needed based on response, logic can show this -->
     <p class="otp-hint" id="otp-hint-terminal" style="display:none; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">Check server terminal if email didn't arrive.</p>
 
     <form id="otp-form" novalidate>
@@ -83,26 +63,11 @@
         </div>
     </form>
 </section>
-
-<section class="card success-card" id="step-success" hidden>
-    <div class="success-icon">✅</div>
-    <h1>Registration Complete</h1>
-    <p class="subtitle">Your email is verified. You're ready to request help.</p>
-    <div class="token-display">
-        <label>Session Token</label>
-        <code id="session-token"></code>
-    </div>
-    <p class="hint">Dashboard will be available in the next stage.</p>
-    <div style="margin-top: 20px; text-align: center;">
-        <a href="/" class="btn btn-secondary" style="display: inline-block; padding: 10px 20px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 4px;">Back to Home</a>
-    </div>
-</section>
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/register.js') }}"></script>
+<script src="{{ url_for('static', filename='js/login.js') }}"></script>
 <script>
-    
     // JS to handle 6 OTP boxes and sync to hidden input
     const otpBoxes = document.querySelectorAll('.otp-box');
     const hiddenOtp = document.getElementById('otp');
@@ -132,21 +97,21 @@
         });
     });
 
-    document.getElementById('register-form').addEventListener('submit', function() {
+    document.getElementById('login-form').addEventListener('submit', function() {
         setTimeout(() => {
             const email = document.getElementById('email').value;
             const display = document.getElementById('display-email');
             if(display && email) display.innerText = email;
+            // if server returned email_delivery = failed, login.js might not expose it easily, 
+            // but we'll show the hint just in case if there's an error block
         }, 100);
     });
 
-    OttoRegister.init({
+    OttoLogin.init({
         role: 'user',
-        registerFormId: 'register-form',
-        otpFormId: 'otp-form',
-        endpoint: '/auth/register/user',
-        fields: ['first_name', 'email', 'phone_number', 'country'],
-        optionalFields: ['last_name'],
+        loginEndpoint: '/auth/login/user',
+        verifyEndpoint: '/auth/verify-otp',
+        dashboardUrl: '/dashboard/user',
     });
 </script>
 {% endblock %}

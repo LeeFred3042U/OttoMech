@@ -106,7 +106,8 @@ def _store_otp(cur, email, otp_code, purpose):
     # Always print OTP to terminal — demo-day fallback, never removed.
     print(
         f"[OTP] email={email} otp={otp_code} "
-        f"purpose={purpose} expires_at={expires_at.isoformat()}"
+        f"purpose={purpose} expires_at={expires_at.isoformat()}",
+        flush=True
     )
     return expires_at
 
@@ -123,12 +124,12 @@ def _send_otp_email(email, otp_code):
 
     try:
         msg = MIMEText(
-            f"Your OttoAssist verification code is: {otp_code}\n\n"
+            f"Your OttoMech verification code is: {otp_code}\n\n"
             f"This code expires in {OTP_EXPIRY_SECONDS // 60} minutes.\n"
             f"If you did not request this, please ignore this email.",
             "plain",
         )
-        msg["Subject"] = f"OttoAssist OTP: {otp_code}"
+        msg["Subject"] = f"OttoMech OTP: {otp_code}"
         msg["From"] = gmail_address
         msg["To"] = email
 
@@ -433,7 +434,7 @@ def verify_otp():
                     cur.execute(
                         """
                         UPDATE users
-                        SET last_login = NOW()
+                        SET last_login = NOW(), email_verified = TRUE
                         WHERE email = %s
                         RETURNING user_id;
                         """,
@@ -447,7 +448,7 @@ def verify_otp():
                     cur.execute(
                         """
                         UPDATE mechanics
-                        SET last_login = NOW()
+                        SET last_login = NOW(), email_verified = TRUE
                         WHERE email = %s
                         RETURNING mechanic_id;
                         """,
@@ -474,3 +475,75 @@ def verify_otp():
         "role": role,
         "id": str(entity_id),
     })
+
+
+@auth_bp.route("/login/user", methods=["POST"])
+def login_user():
+    """Send OTP to an existing user's email for login."""
+    data = request.get_json(silent=True) or {}
+
+    email = (data.get("email") or "").strip().lower()
+    if not email or not EMAIL_PATTERN.match(email):
+        return jsonify({"error": "A valid email address is required"}), 400
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT user_id FROM users WHERE email = %s;",
+                    (email,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return jsonify({
+                        "error": "No account found for this email. Please register first.",
+                    }), 404
+
+                otp_code = _generate_otp()
+                _store_otp(cur, email, otp_code, "login")
+    except Exception:
+        return db_error_response()
+
+    email_sent = _send_otp_email(email, otp_code)
+
+    return jsonify({
+        "message": "OTP sent for login verification",
+        "expires_in_seconds": OTP_EXPIRY_SECONDS,
+        "email_delivery": "sent" if email_sent else "failed",
+    }), 200
+
+
+@auth_bp.route("/login/mechanic", methods=["POST"])
+def login_mechanic():
+    """Send OTP to an existing mechanic's email for login."""
+    data = request.get_json(silent=True) or {}
+
+    email = (data.get("email") or "").strip().lower()
+    if not email or not EMAIL_PATTERN.match(email):
+        return jsonify({"error": "A valid email address is required"}), 400
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT mechanic_id FROM mechanics WHERE email = %s;",
+                    (email,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return jsonify({
+                        "error": "No account found for this email. Please register first.",
+                    }), 404
+
+                otp_code = _generate_otp()
+                _store_otp(cur, email, otp_code, "login")
+    except Exception:
+        return db_error_response()
+
+    email_sent = _send_otp_email(email, otp_code)
+
+    return jsonify({
+        "message": "OTP sent for login verification",
+        "expires_in_seconds": OTP_EXPIRY_SECONDS,
+        "email_delivery": "sent" if email_sent else "failed",
+    }), 200

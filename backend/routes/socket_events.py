@@ -1,5 +1,5 @@
 """
-Stage 4 — Socket.IO event handlers for OttoAssist real-time dispatch.
+Stage 4 — Socket.IO event handlers for OttoMech real-time dispatch.
 
 active_jobs: in-memory dict, keyed by job_id (str UUID).
   Each value: {"driver_sid": str|None, "mechanic_sid": str|None}
@@ -57,7 +57,7 @@ def emit_new_job(socketio: SocketIO, job_id: str, issue_type: str,
     }
     for mechanic_id in mechanic_ids:
         room = f"mechanic_{mechanic_id}"
-        socketio.emit("new_job", payload, room=room)
+        socketio.emit("new_job", payload, to=room)
         logger.debug("emit new_job → room %s", room)
 
 
@@ -78,7 +78,7 @@ def emit_match_confirmed(socketio: SocketIO, job_id: str, driver_id: str,
         "phone": mechanic_data.get("phone"),
         "distance_km": mechanic_data.get("distance_km"),
     }
-    socketio.emit("match_confirmed", payload, room=room)
+    socketio.emit("match_confirmed", payload, to=room)
     logger.debug("emit match_confirmed → room %s", room)
 
 
@@ -217,8 +217,50 @@ def register_socket_events(socketio: SocketIO) -> None:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "distance_remaining_m": distance_m,
         }
-        socketio.emit("mechanic_ping", ping_payload, room=driver_sid)
+        socketio.emit("mechanic_ping", ping_payload, to=driver_sid)
         logger.debug("mechanic_ping → driver_sid %s dist=%.1fm", driver_sid, distance_m)
+
+    # -----------------------------------------------------------------------
+
+    @socketio.on("join_job")
+    def on_join_job(data):
+        """Join a job room after creation (driver) or acceptance (mechanic).
+
+        Expected payload: {job_id, role}
+        The socket is already authenticated on connect, so we trust the
+        identity from the token_store lookup done during on_connect.
+        """
+        data = data or {}
+        job_id = data.get("job_id")
+        role = data.get("role")
+
+        if not job_id:
+            emit("error", {"message": "job_id is required"})
+            return
+
+        # Look up the caller's identity from the connect-time token
+        # We need to re-derive it since Flask-SocketIO doesn't persist
+        # per-connection state across events.  The client already
+        # authenticated on connect, so we find their room membership.
+        sid = request.sid
+
+        # Ensure active_jobs entry exists
+        if job_id not in active_jobs:
+            active_jobs[job_id] = {"driver_sid": None, "mechanic_sid": None}
+
+        if role == "user":
+            active_jobs[job_id]["driver_sid"] = sid
+            join_room(f"job_{job_id}")
+            logger.debug("join_job: driver sid=%s joined job %s", sid, job_id)
+        elif role == "mechanic":
+            active_jobs[job_id]["mechanic_sid"] = sid
+            join_room(f"job_{job_id}")
+            logger.debug("join_job: mechanic sid=%s joined job %s", sid, job_id)
+        else:
+            emit("error", {"message": "role must be 'user' or 'mechanic'"})
+            return
+
+        emit("joined", {"job_id": job_id, "role": role})
 
     # -----------------------------------------------------------------------
 

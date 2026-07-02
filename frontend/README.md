@@ -1,4 +1,4 @@
-# OttoAssist — Frontend
+# OttoMech — Frontend
 
 There is **no build step**. No npm, no webpack, no vite.
 
@@ -38,7 +38,9 @@ frontend/
 
 ## Design
 
-- **Palette**: Background `#1C1C1E`, text `#F5F5F0`, accent `#F5A623`
+- **Palette**: Light theme (background `#FFFFFF` / `#F7F7F7`, text `#1C1C1E`, accent `#F5A623`)
+- **Aesthetic**: Brutalist Minimalist. Zero border radii across the entire app. Sharp 90-degree corners. High contrast focus and error states.
 - **Font**: Inter (Google Fonts)
 - **Mobile-first**: max-width 420px container, touch-friendly inputs
+- **Assets**: Polished SVG line icons (stroke-linecap square, stroke-linejoin miter)
 - **No frameworks**: vanilla CSS + vanilla JS

@@ -1,4 +1,4 @@
-# AGENT.md — OttoAssist
+# AGENT.md — OttoMech
 > Read this file completely before writing a single line of code.
 > This is the project's institutional memory. Every decision here was made deliberately.
 > v2 — supersedes prior SERIAL/no-map/no-registration decisions where noted below.
@@ -7,7 +7,7 @@
 
 ## What This Project Is
 
-OttoAssist is a PWA (no app install) that connects stranded users in Lucknow with nearby verified mechanics in under 5 minutes. Think Rapido/Uber/Porter/Ola but for roadside mechanic dispatch. User opens browser, registers, picks issue type, system finds nearest 3 mechanics via GPS, first to accept gets the job. Payment is cash on completion — no payment gateway in any stage.
+OttoMech is a PWA (no app install) that connects stranded users in Lucknow with nearby verified mechanics in under 5 minutes. Think Rapido/Uber/Porter/Ola but for roadside mechanic dispatch. User opens browser, registers, picks issue type, system finds nearest 3 mechanics via GPS, first to accept gets the job. Payment is cash on completion — no payment gateway in any stage.
 
 **Tagline:** Your mechanic. One tap away.
 **Hackathon:** CODESLAYER2k25, DevSphere India, Open Innovation track.
@@ -36,9 +36,9 @@ OttoAssist is a PWA (no app install) that connects stranded users in Lucknow wit
 | 3 | Core dispatch API: job broadcast to 3 mechanics, `job_broadcasts` table, auth middleware on protected routes | ✅ Complete |
 | 4 | Real-time: Socket.IO, mechanic GPS ping → user map (Leaflet), `match_confirmed` event, `rejoin_job`, `socket-status` debug route | ✅ Complete |
 | 5 | Frontend (PWA): registration → OTP login → issue select → mechanic match, Leaflet map integrated | ✅ Complete |
-| 6 | Mechanic dashboard: registration flow, job accept UI, GPS emit loop | 🔄 Current |
-| 7 | MRI scoring (ReportLab PDF receipt — cash amount entered manually by mechanic, no gateway) | ⏳ |
-| 8 | Demo polish: 8 garages live, offline mode, **live registration demo readiness** (this is the demo-day centerpiece) | ⏳ |
+| 6 | Mechanic dashboard: registration flow, job accept UI, GPS emit loop | ✅ Complete |
+| 7 | MRI scoring (ReportLab PDF receipt — cash amount entered manually by mechanic, no gateway) | ✅ Complete |
+| 8 | Demo polish: 8 garages live, offline mode, **live registration demo readiness** (this is the demo-day centerpiece) + **Minimalist UI Overhaul** | ✅ Complete |
 
 **Never work ahead of the current stage.** Do not add Stage 7 features while in Stage 6.
 
@@ -67,8 +67,8 @@ OttoAssist is a PWA (no app install) that connects stranded users in Lucknow wit
 
 - Stored as **E.164**: `+91XXXXXXXXXX` (country code + 10-digit number, no spaces/dashes)
 - `country` column stores **ISO 3166-1 alpha-2** code (e.g. `IN`, `US`, `GB`) — set automatically based on the country the user selects at registration (one country picker drives both the dial code prefix and this column — do not ask for them separately)
-- OTP is sent to the full E.164 number and verifies phone ownership at registration time for both users and mechanics
-- `otp_store.phone` becomes the E.164 string as primary key
+- OTP is now sent to the user's **email** via Gmail SMTP (Stage 5 decision). `otp_store` is keyed by **email**, not phone.
+- **Country picker (Stage 5 status):** Currently a free-text `<input type="text" maxlength="2">` with a hint label. Stage 6+ should replace this with a `<select>` country list so the E.164 dial-code prefix auto-fills. For demo day judges can type `IN` manually — acceptable.
 
 ---
 
@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS users (
 
     -- Authentication
     password_hash    TEXT,                             -- nullable, only if email login added later
-    phone_verified   BOOLEAN DEFAULT FALSE,
+    phone_verified   BOOLEAN DEFAULT TRUE,     -- Stage 5: verification moved to email; phone_verified is always TRUE on insert and carries no gate logic
     email_verified   BOOLEAN DEFAULT FALSE,
     last_login       TIMESTAMPTZ,
     two_fa_enabled   BOOLEAN DEFAULT FALSE,
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS mechanics (
 
     -- Authentication
     password_hash    TEXT,
-    phone_verified   BOOLEAN DEFAULT FALSE,
+    phone_verified   BOOLEAN DEFAULT TRUE,     -- Stage 5: same as users — always TRUE on insert; email is the verification gate
     email_verified   BOOLEAN DEFAULT FALSE,
     last_login       TIMESTAMPTZ,
     two_fa_enabled   BOOLEAN DEFAULT FALSE,
@@ -137,9 +137,9 @@ CREATE TABLE IF NOT EXISTS mechanics (
 
 CREATE INDEX IF NOT EXISTS idx_mechanics_location ON mechanics USING GIST(location);
 
--- ═══════════════ OTP (shared by users + mechanics, keyed on E.164 phone) ═══════════════
+-- ═══════════════ OTP (shared by users + mechanics, keyed on email — Stage 5 change) ═══════════════
 CREATE TABLE IF NOT EXISTS otp_store (
-    phone        VARCHAR(20) PRIMARY KEY,    -- E.164
+    email        VARCHAR(255) PRIMARY KEY,   -- keyed on email since Stage 5 (was E.164 phone in Stage 4)
     otp_code     CHAR(6) NOT NULL,
     purpose      VARCHAR(20) DEFAULT 'login', -- 'registration' | 'login'
     expires_at   TIMESTAMPTZ NOT NULL
@@ -281,7 +281,11 @@ Server → Client (room-targeted):
 
 ## New Decisions (Stage 4 — complete)
 
-- **Socket.IO `async_mode='threading'`** — single global `SocketIO` instance created at module level in `app.py`, `init_app()`-ed inside `create_app()`, stored in `app.extensions['socketio']` for route access.
+- **Socket.IO async_mode — two environments, intentionally different:**
+  - **Production (Railway/Render):** `eventlet` — `app.py` monkey-patches at startup (`import eventlet; eventlet.monkey_patch()`), gunicorn runs with `--worker-class eventlet -w 1`. Python is pinned to **3.11** because eventlet breaks on 3.12+.
+  - **Tests (Flask test client):** implicitly uses `threading` because the test client bypasses gunicorn entirely. Do not add `async_mode='eventlet'` to the `SocketIO()` constructor — it would break the test client.
+  - This split is intentional and acceptable. Do not collapse it. If Stage 6+ introduces async behaviour, test both paths.
+  - Single global `SocketIO` instance created at module level in `app.py`, `init_app()`-ed inside `create_app()`, stored in `app.extensions['socketio']` for route access.
 - **`register_socket_events()` idempotency** — handlers registered once per `socketio` instance via inner closures. Flask-SocketIO deduplicates at the server level; calling `create_app()` twice (tests) does not double-register.
 - **Stable rooms over ephemeral SIDs** — on connect, users join `driver_{user_id}` and mechanics join `mechanic_{mechanic_id}`. REST handlers emit to these rooms with `socketio.emit(..., room=...)` — never raw SIDs.
 - **`active_jobs` dict** — in-process dict `{job_id: {driver_sid, mechanic_sid}}` populated by `rejoin_job` event and referenced by `mechanic_location` for forwarding pings. No DB reads for GPS forwarding.
@@ -307,7 +311,8 @@ Server → Client (room-targeted):
 ## Demo Day Requirement (Stage 8 centerpiece)
 
 Judges will watch a **live, real-time** user registration and mechanic registration. This means:
-- Registration → OTP (visible in terminal, acceptable for free-tier) → verified → redirected to next screen, all within seconds, on stage, with no visible errors
+- Registration → OTP (visible in terminal or email) → verified → redirected to next screen, all within seconds, on stage, with no visible errors. The backend now uses random 6-digit OTPs that are flushed immediately to stdout.
+- The UI has been fully overhauled to a **brutalist minimalist style** with 0 border radius, polished SVGs, and high-contrast sharp states to look premium.
 - Test this flow at least 10 times before demo day with different phone numbers
 - Have 2–3 backup phone numbers pre-registered in case live registration hits a Neon cold-start during the demo
 - Add a `/health` keep-alive ping (every 5 min) starting at least 10 minutes before the demo slot to avoid Render cold start mid-pitch

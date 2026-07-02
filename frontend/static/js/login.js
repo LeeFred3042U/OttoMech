@@ -1,140 +1,77 @@
 /* ═══════════════════════════════════════════════════════════
-   OttoMech — register.js
-   Handles both user and mechanic registration forms.
-   OTP verification logic.
-   No localStorage/sessionStorage. All state in JS variables.
-   OTP keyed on email, not phone. Geolocation for mechanics.
+   OttoMech — login.js
+   Handles email-based OTP login for both users and mechanics.
+   Follows the same IIFE module pattern as register.js.
+   No localStorage/sessionStorage except the one-time token handoff.
    ═══════════════════════════════════════════════════════════ */
 
-var OttoRegister = (function () {
+var OttoLogin = (function () {
     'use strict';
 
-    // ── State (memory only, never persisted) ─────────────────
+    // ── State (memory only) ──────────────────────────────────
     var _email = '';
     var _role = '';
+    var _dashboardUrl = '';
     var _countdownInterval = null;
     var _inflight = false;
 
-    // ── DOM refs (set during init) ───────────────────────────
+    // ── DOM refs ─────────────────────────────────────────────
     var _els = {};
 
-    // ── Email validation regex ───────────────────────────────
+    // ── Email regex ──────────────────────────────────────────
     var _emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     // ── Public: init ─────────────────────────────────────────
     function init(cfg) {
         _role = cfg.role;
+        _dashboardUrl = cfg.dashboardUrl;
 
-        _els.registerForm = document.getElementById(cfg.registerFormId);
-        _els.otpForm = document.getElementById(cfg.otpFormId);
-        _els.stepRegister = document.getElementById('step-register');
+        _els.loginForm = document.getElementById('login-form');
+        _els.otpForm = document.getElementById('otp-form');
+        _els.stepEmail = document.getElementById('step-email');
         _els.stepOtp = document.getElementById('step-otp');
-        _els.stepSuccess = document.getElementById('step-success');
-        _els.registerError = document.getElementById('register-error');
+        _els.loginError = document.getElementById('login-error');
         _els.otpError = document.getElementById('otp-error');
-        _els.btnRegister = document.getElementById('btn-register');
+        _els.btnLogin = document.getElementById('btn-login');
         _els.btnVerify = document.getElementById('btn-verify');
         _els.countdown = document.getElementById('otp-countdown');
-        _els.sessionToken = document.getElementById('session-token');
-        _els.geoNotice = document.getElementById('geo-notice');
-        _els.geoStatus = document.getElementById('geo-status');
 
-        _els.registerForm.addEventListener('submit', function (e) {
+        _els.loginForm.addEventListener('submit', function (e) {
             e.preventDefault();
-            _handleRegister(cfg);
+            _handleLogin(cfg);
         });
 
         _els.otpForm.addEventListener('submit', function (e) {
             e.preventDefault();
-            _handleOtp();
+            _handleOtp(cfg);
         });
     }
 
-    // ── Registration submit ──────────────────────────────────
-    function _handleRegister(cfg) {
+    // ── Login submit (send OTP) ──────────────────────────────
+    function _handleLogin(cfg) {
         _clearAllErrors();
 
-        // Collect form data
-        var data = {};
-        var allFields = cfg.fields.concat(cfg.optionalFields || []);
-        for (var i = 0; i < allFields.length; i++) {
-            var el = document.getElementById(allFields[i]);
-            if (el) {
-                data[allFields[i]] = el.value.trim();
-            }
-        }
+        var emailEl = document.getElementById('email');
+        var email = (emailEl.value || '').trim().toLowerCase();
 
-        // Client-side required field check
-        var missing = [];
-        for (var j = 0; j < cfg.fields.length; j++) {
-            var key = cfg.fields[j];
-            if (!data[key]) {
-                missing.push(key);
-                _showFieldError(key, 'This field is required');
-            }
+        if (!email) {
+            _showFieldError('email', 'Email is required');
+            return;
         }
-        if (missing.length > 0) return;
-
-        // Client-side email validation
-        if (data.email && !_emailRe.test(data.email)) {
+        if (!_emailRe.test(email)) {
             _showFieldError('email', 'Enter a valid email address');
             return;
         }
 
-        _email = data.email;
+        _email = email;
 
-        // If geolocation is needed (mechanic), capture it before POST
-        if (cfg.useGeolocation) {
-            _captureGeolocationAndSubmit(cfg, data);
-        } else {
-            _submitRegistration(cfg, data);
-        }
-    }
-
-    // ── Geolocation capture ──────────────────────────────────
-    function _captureGeolocationAndSubmit(cfg, data) {
-        if (!navigator.geolocation) {
-            // Geolocation not supported — proceed without
-            data.lat = null;
-            data.lng = null;
-            _showGeoNotice('Location not available — your browser does not support geolocation. You can update your location later from the dashboard.');
-            _submitRegistration(cfg, data);
-            return;
-        }
-
-        // Show loading state
-        _showGeoStatus('Getting your location…');
-        _setBtnLoading(_els.btnRegister, true);
-
-        navigator.geolocation.getCurrentPosition(
-            function (pos) {
-                // Success
-                data.lat = pos.coords.latitude;
-                data.lng = pos.coords.longitude;
-                _hideGeoStatus();
-                _submitRegistration(cfg, data);
-            },
-            function () {
-                // Denied or error
-                data.lat = null;
-                data.lng = null;
-                _hideGeoStatus();
-                _showGeoNotice('Location not set — enable location access later from your dashboard to appear in nearby search.');
-                _submitRegistration(cfg, data);
-            },
-            { timeout: 5000, enableHighAccuracy: false }
-        );
-    }
-
-    // ── Submit registration POST ─────────────────────────────
-    function _submitRegistration(cfg, data) {
-        _postJSON(cfg.endpoint, data, _els.btnRegister, _els.registerError, function (body) {
+        _postJSON(cfg.loginEndpoint, { email: email }, _els.btnLogin, _els.loginError, function (body) {
             // Check if email delivery failed
             if (body.email_delivery === 'failed') {
                 _showEmailWarning('Email delivery failed — check the server terminal for your OTP code.');
             }
             // Show OTP step
-            _els.stepRegister.hidden = true;
+            _els.stepEmail.hidden = true;
             _els.stepOtp.hidden = false;
             _startCountdown(body.expires_in_seconds || 300);
             document.getElementById('otp').focus();
@@ -142,7 +79,7 @@ var OttoRegister = (function () {
     }
 
     // ── OTP submit ───────────────────────────────────────────
-    function _handleOtp() {
+    function _handleOtp(cfg) {
         _clearError(_els.otpError);
         var otpEl = document.getElementById('otp');
         var otp = otpEl.value.trim();
@@ -158,12 +95,17 @@ var OttoRegister = (function () {
             role: _role,
         };
 
-        _postJSON('/auth/verify-otp', payload, _els.btnVerify, _els.otpError, function (body) {
-            // Success — show token
+        _postJSON(cfg.verifyEndpoint, payload, _els.btnVerify, _els.otpError, function (body) {
             _stopCountdown();
-            _els.stepOtp.hidden = true;
-            _els.stepSuccess.hidden = false;
-            _els.sessionToken.textContent = body.session_token;
+
+            // One-time sessionStorage handoff for cross-page token transfer
+            // This is the ONLY acceptable sessionStorage use.
+            sessionStorage.setItem('otto_token_handoff', body.session_token);
+            sessionStorage.setItem('otto_id_handoff', body.id);
+            sessionStorage.setItem('otto_role_handoff', body.role);
+
+            // Navigate to dashboard
+            window.location.href = _dashboardUrl;
         });
     }
 
@@ -191,7 +133,6 @@ var OttoRegister = (function () {
             if (result.status >= 200 && result.status < 300) {
                 onSuccess(result.body);
             } else {
-                // Show exact error from backend
                 var msg = result.body.error || 'Unknown error';
                 _showFormError(errorEl, msg, false);
             }
@@ -234,27 +175,7 @@ var OttoRegister = (function () {
         _els.countdown.classList.remove('expired');
     }
 
-    // ── Geolocation UI helpers ───────────────────────────────
-    function _showGeoNotice(msg) {
-        if (_els.geoNotice) {
-            _els.geoNotice.textContent = msg;
-            _els.geoNotice.hidden = false;
-        }
-    }
-
-    function _showGeoStatus(msg) {
-        if (_els.geoStatus) {
-            _els.geoStatus.textContent = msg;
-            _els.geoStatus.hidden = false;
-        }
-    }
-
-    function _hideGeoStatus() {
-        if (_els.geoStatus) {
-            _els.geoStatus.hidden = true;
-        }
-    }
-
+    // ── Email warning ────────────────────────────────────────
     function _showEmailWarning(msg) {
         var el = document.getElementById('otp-error');
         if (el) {
@@ -294,7 +215,7 @@ var OttoRegister = (function () {
         for (var j = 0; j < errorFields.length; j++) {
             errorFields[j].classList.remove('has-error');
         }
-        _clearError(_els.registerError);
+        _clearError(_els.loginError);
         _clearError(_els.otpError);
     }
 

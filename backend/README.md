@@ -1,6 +1,6 @@
-# OttoAssist — Stage 2 (Registration Overhaul)
+# OttoMech — Stage 8 (Complete)
 
-Flask API for roadside mechanic dispatch in Lucknow. UUID-based registration, E.164 phones, PostGIS geo queries. Raw SQL against Neon PostgreSQL.
+Flask API for roadside mechanic dispatch in Lucknow. UUID-based registration, E.164 phones, PostGIS geo queries. Raw SQL against Neon PostgreSQL. Real-time updates with Socket.IO. Minimalist brutalist UI frontend included.
 
 ## Prerequisites
 

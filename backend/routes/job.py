@@ -350,6 +350,9 @@ def complete_job(job_id):
                     """,
                     (cash_amount, job_id),
                 )
+
+                # ── Stage 7: MRI events ──────────────────────────────
+                # 1. COMPLETED event
                 cur.execute(
                     """
                     INSERT INTO mri_events (mechanic_id, event_type)
@@ -358,9 +361,145 @@ def complete_job(job_id):
                     (assigned_mechanic,),
                 )
 
+                # Fetch timing data for ON_TIME/LATE and RESPONSE_TIME
+                cur.execute(
+                    """
+                    SELECT created_at, accepted_at, completed_at
+                    FROM jobs
+                    WHERE job_id = %s;
+                    """,
+                    (job_id,),
+                )
+                timing = cur.fetchone()
+                if timing and timing[0] and timing[1]:
+                    created_at = timing[0]
+                    accepted_at = timing[1]
+                    completed_at = timing[2]
+
+                    # Ensure timezone-aware
+                    if created_at.tzinfo is None:
+                        created_at = created_at.replace(tzinfo=timezone.utc)
+                    if accepted_at.tzinfo is None:
+                        accepted_at = accepted_at.replace(tzinfo=timezone.utc)
+
+                    # 2. ON_TIME or LATE (threshold: 10 minutes)
+                    accept_delta = (accepted_at - created_at).total_seconds()
+                    if accept_delta <= 600:  # 10 minutes
+                        cur.execute(
+                            """
+                            INSERT INTO mri_events (mechanic_id, event_type)
+                            VALUES (%s, 'ON_TIME');
+                            """,
+                            (assigned_mechanic,),
+                        )
+                    else:
+                        cur.execute(
+                            """
+                            INSERT INTO mri_events (mechanic_id, event_type)
+                            VALUES (%s, 'LATE');
+                            """,
+                            (assigned_mechanic,),
+                        )
+
+                    # 3. RESPONSE_TIME event (value = seconds from accept to complete)
+                    if completed_at:
+                        if completed_at.tzinfo is None:
+                            completed_at = completed_at.replace(tzinfo=timezone.utc)
+                        response_seconds = (completed_at - accepted_at).total_seconds()
+                        cur.execute(
+                            """
+                            INSERT INTO mri_events (mechanic_id, event_type, value)
+                            VALUES (%s, 'RESPONSE_TIME', %s);
+                            """,
+                            (assigned_mechanic, response_seconds),
+                        )
+
+                # ── Stage 7: MRI recomputation ───────────────────────
+                try:
+                    from routes.mri import compute_mri_score
+                    new_score = compute_mri_score(cur, assigned_mechanic)
+                    cur.execute(
+                        """
+                        UPDATE mechanics
+                        SET mri_score = %s
+                        WHERE mechanic_id = %s;
+                        """,
+                        (new_score, assigned_mechanic),
+                    )
+                except Exception:
+                    logger.exception(
+                        "MRI recomputation failed for mechanic %s (non-fatal)",
+                        assigned_mechanic,
+                    )
+
+                # ── Stage 7: PDF receipt generation ──────────────────
+                try:
+                    from routes.mri import generate_receipt_pdf
+
+                    # Fetch job and mechanic data for receipt
+                    cur.execute(
+                        """
+                        SELECT j.job_id, j.issue_type, j.lat, j.lng, j.created_at,
+                               j.cash_amount, j.mechanic_id,
+                               m.first_name, m.last_name, m.workshop_name,
+                               m.zone, m.mri_score
+                        FROM jobs j
+                        LEFT JOIN mechanics m ON m.mechanic_id = j.mechanic_id
+                        WHERE j.job_id = %s;
+                        """,
+                        (job_id,),
+                    )
+                    receipt_row = cur.fetchone()
+                    if receipt_row:
+                        receipt_job_data = {
+                            "job_id": str(receipt_row[0]),
+                            "issue_type": receipt_row[1],
+                            "lat": float(receipt_row[2]) if receipt_row[2] else None,
+                            "lng": float(receipt_row[3]) if receipt_row[3] else None,
+                            "created_at": receipt_row[4].isoformat() if receipt_row[4] else None,
+                            "cash_amount": float(receipt_row[5]) if receipt_row[5] else 0,
+                        }
+                        receipt_mech_data = {
+                            "name": f"{receipt_row[7]} {receipt_row[8]}".strip() if receipt_row[7] else "—",
+                            "workshop_name": receipt_row[9] or "—",
+                            "zone": receipt_row[10] or "—",
+                            "mri_score": float(receipt_row[11]) if receipt_row[11] else 50.0,
+                        }
+                        pdf_base64 = generate_receipt_pdf(receipt_job_data, receipt_mech_data)
+
+                        cur.execute(
+                            """
+                            INSERT INTO receipts (job_id, pdf_base64, cash_amount, warranty_days)
+                            VALUES (%s, %s, %s, %s)
+                            ON CONFLICT (job_id) DO UPDATE
+                            SET pdf_base64 = EXCLUDED.pdf_base64,
+                                cash_amount = EXCLUDED.cash_amount;
+                            """,
+                            (job_id, pdf_base64, cash_amount, data.get("warranty_days", 0)),
+                        )
+                except Exception:
+                    logger.exception(
+                        "PDF receipt generation failed for job %s (non-fatal)",
+                        job_id,
+                    )
+
                 row = _fetch_job(cur, job_id)
     except Exception:
         return db_error_response()
+
+    # ── Stage 7: emit 'job_completed' to driver's room ───────────
+    try:
+        sio = current_app.extensions.get("socketio")
+        if sio and row:
+            sio.emit("job_completed", {
+                "job_id": str(job_id),
+                "cash_amount": float(cash_amount),
+                "status": "completed",
+            }, to=f"job_{job_id}")
+    except Exception:
+        logger.exception(
+            "Socket emit 'job_completed' failed for job %s (non-fatal)", job_id
+        )
 
     return jsonify({"job": _serialize_job(row)}), 200
 
