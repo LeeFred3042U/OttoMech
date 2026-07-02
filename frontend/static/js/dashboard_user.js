@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
    OttoMech — dashboard_user.js
-   Driver dashboard: issue select → job create → live tracking.
+   User dashboard: issue select → job create → live tracking.
    IIFE module, same pattern as register.js / login.js.
    All state in JS module variables. No localStorage.
    sessionStorage used ONCE for token handoff (read + delete).
@@ -17,6 +17,7 @@ var OttoDashboard = (function () {
     var _jobId = null;
     var _selectedIssue = null;
     var _photoBase64 = null;
+    var _description = '';
     var _driverLat = null;
     var _driverLng = null;
     var _geoGranted = false;
@@ -39,13 +40,13 @@ var OttoDashboard = (function () {
     function _createIcons() {
         _orangeIcon = L.divIcon({
             className: 'marker-driver',
-            html: '<div style="width:16px;height:16px;background:#F5A623;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>',
+            html: '<div style="width:16px;height:16px;background:#14161B;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>',
             iconSize: [22, 22],
             iconAnchor: [11, 11],
         });
         _blueIcon = L.divIcon({
             className: 'marker-mechanic',
-            html: '<div style="width:16px;height:16px;background:#007AFF;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>',
+            html: '<div style="width:16px;height:16px;background:#2E6BE6;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>',
             iconSize: [22, 22],
             iconAnchor: [11, 11],
         });
@@ -72,6 +73,7 @@ var OttoDashboard = (function () {
         _cacheDom();
         _bindIssueCards();
         _bindPhotoUpload();
+        _bindDescriptionToggle();
         _bindFindButton();
         _bindReceiptButton();
         _requestGeolocation();
@@ -92,11 +94,11 @@ var OttoDashboard = (function () {
 
     // ── Issue Selection ──────────────────────────────────────
     function _bindIssueCards() {
-        var cards = document.querySelectorAll('.issue-card');
+        var cards = document.querySelectorAll('.chip');
         for (var i = 0; i < cards.length; i++) {
             cards[i].addEventListener('click', function () {
                 // Deselect all
-                var all = document.querySelectorAll('.issue-card');
+                var all = document.querySelectorAll('.chip');
                 for (var j = 0; j < all.length; j++) {
                     all[j].classList.remove('selected');
                 }
@@ -118,21 +120,64 @@ var OttoDashboard = (function () {
     // ── Photo Upload ─────────────────────────────────────────
     function _bindPhotoUpload() {
         var input = document.getElementById('photo-upload');
+        var thumb = document.getElementById('upload-thumb');
+        var title = document.getElementById('upload-title');
+        var hint = document.getElementById('upload-hint');
+        var removeBtn = document.getElementById('upload-remove');
+        var defaultThumbHTML = thumb.innerHTML;
+
+        function reset() {
+            _photoBase64 = null;
+            input.value = '';
+            thumb.innerHTML = defaultThumbHTML;
+            title.textContent = 'Add a photo of the damage';
+            hint.textContent = 'Camera or gallery · optional, max 1 MB';
+            removeBtn.hidden = true;
+        }
+
         input.addEventListener('change', function () {
             var file = input.files[0];
-            if (!file) { _photoBase64 = null; return; }
+            if (!file) { reset(); return; }
             if (file.size > 1024 * 1024) {
                 document.getElementById('err-photo').textContent = 'Photo must be under 1 MB';
-                input.value = '';
-                _photoBase64 = null;
+                reset();
                 return;
             }
             document.getElementById('err-photo').textContent = '';
             var reader = new FileReader();
             reader.onload = function (e) {
                 _photoBase64 = e.target.result.split(',')[1]; // strip data URI prefix
+                thumb.innerHTML = '<img src="' + e.target.result + '" alt="Damage photo">';
+                title.textContent = 'Photo attached';
+                hint.textContent = file.name;
+                removeBtn.hidden = false;
             };
             reader.readAsDataURL(file);
+        });
+
+        removeBtn.addEventListener('click', function (e) {
+            e.preventDefault();
+            reset();
+        });
+    }
+
+    // ── Description Toggle ───────────────────────────────────
+    function _bindDescriptionToggle() {
+        var toggle = document.getElementById('desc-toggle');
+        var panel = document.getElementById('desc-panel');
+        var textarea = document.getElementById('issue-description');
+        var count = document.getElementById('desc-count');
+
+        toggle.addEventListener('click', function () {
+            var willOpen = !panel.classList.contains('open');
+            panel.classList.toggle('open', willOpen);
+            toggle.classList.toggle('open', willOpen);
+            if (willOpen) textarea.focus();
+        });
+
+        textarea.addEventListener('input', function () {
+            _description = textarea.value;
+            count.textContent = textarea.value.length;
         });
     }
 
@@ -147,6 +192,7 @@ var OttoDashboard = (function () {
                 _driverLat = pos.coords.latitude;
                 _driverLng = pos.coords.longitude;
                 _geoGranted = true;
+                _setLocationText('Using your current location', false);
                 _updateFindButton();
             },
             function () {
@@ -156,8 +202,17 @@ var OttoDashboard = (function () {
         );
     }
 
+    function _setLocationText(text, pending) {
+        var row = document.getElementById('location-row');
+        var label = document.getElementById('location-text');
+        if (!row || !label) return;
+        label.textContent = text;
+        row.classList.toggle('pending', !!pending);
+    }
+
     function _showGeoWarning() {
         _els.geoWarning.hidden = false;
+        _setLocationText('Location needed — enter coordinates below', true);
         // Listen for manual input changes
         document.getElementById('manual-lat').addEventListener('input', _updateFindButton);
         document.getElementById('manual-lng').addEventListener('input', _updateFindButton);
@@ -189,6 +244,7 @@ var OttoDashboard = (function () {
             lng: lng,
         };
         if (_photoBase64) payload.photo_base64 = _photoBase64;
+        if (_description) payload.description = _description;
 
         _setBtnLoading(_els.btnFind, true);
 

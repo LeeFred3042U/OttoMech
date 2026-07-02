@@ -1,50 +1,71 @@
 {% extends "base.html" %}
 {% block title %}Login — Mechanic | OttoMech{% endblock %}
 
+{% block nav_links %}
+<a href="/">Home</a>
+<a href="/register/mechanic">Sign Up</a>
+<a href="/login/mechanic">Log In</a>
+{% endblock %}
+
 {% block content %}
-<section class="card" id="step-email">
-    <h1>Mechanic Login</h1>
-    <p class="subtitle">Log in with your registered email to receive jobs</p>
+<section class="auth-container" id="step-email">
+    <div class="auth-header">
+        <h1>Welcome back</h1>
+        <p>Enter your email to continue</p>
+    </div>
 
     <form id="login-form" novalidate>
-        <div class="field">
-            <label for="email">Email <span class="required">*</span></label>
-            <input type="email" id="email" name="email" placeholder="raju@example.com" required autocomplete="email">
+        <div class="auth-field">
+            <input type="email" id="email" name="email" placeholder="your@email.com" required autocomplete="email">
             <span class="field-error" id="err-email"></span>
         </div>
 
         <div class="form-error" id="login-error" role="alert"></div>
 
-        <button type="submit" class="btn btn-primary" id="btn-login">
-            <span class="btn-text">Send OTP</span>
+        <button type="submit" class="btn-black" id="btn-login">
+            <span class="btn-text">Continue</span>
             <span class="btn-loading" hidden>Sending…</span>
         </button>
     </form>
 
-    <p class="hint" style="text-align: center; margin-top: 1rem;">
-        Don't have an account? <a href="/register/mechanic" style="color: #F5A623; font-weight: 500;">Register here</a>
-    </p>
+    <div class="auth-footer">
+        New to OttoMech? <a href="/register/mechanic">Sign up</a>
+    </div>
 </section>
 
-<section class="card" id="step-otp" hidden>
-    <h1>Verify OTP</h1>
-    <p class="subtitle">Enter the 6-digit code sent to your <strong>email</strong></p>
-    <p class="otp-hint">📧 Check your inbox (and spam folder). OTP is also printed in the server terminal for demo use.</p>
+<section class="auth-container" id="step-otp" hidden>
+    <div class="auth-header">
+        <h1>Check your email</h1>
+        <p>We sent a 6-digit code to <strong id="display-email">your email</strong></p>
+    </div>
+    
+    <p class="otp-hint" id="otp-hint-terminal" style="display:none; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">Check server terminal if email didn't arrive.</p>
 
     <form id="otp-form" novalidate>
-        <div class="field">
-            <label for="otp">OTP Code</label>
-            <input type="text" id="otp" name="otp" placeholder="000000" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" required autocomplete="one-time-code">
-            <span class="field-error" id="err-otp"></span>
+        <!-- The JS needs #otp, so we keep a hidden input -->
+        <input type="hidden" id="otp" name="otp">
+        
+        <div class="otp-inputs" id="otp-inputs">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
         </div>
+        <span class="field-error" id="err-otp"></span>
 
         <div class="countdown" id="otp-countdown"></div>
         <div class="form-error" id="otp-error" role="alert"></div>
 
-        <button type="submit" class="btn btn-primary" id="btn-verify">
-            <span class="btn-text">Verify & Login</span>
+        <button type="submit" class="btn-black" id="btn-verify" disabled>
+            <span class="btn-text">Verify</span>
             <span class="btn-loading" hidden>Verifying…</span>
         </button>
+        
+        <div style="text-align: center; margin-top: 1rem;">
+            <a href="#" id="resend-link" style="color: var(--text-muted); font-size: 0.8rem; text-decoration: none; pointer-events: none;">Resend code</a>
+        </div>
     </form>
 </section>
 {% endblock %}
@@ -52,6 +73,43 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/login.js') }}"></script>
 <script>
+    // JS to handle 6 OTP boxes and sync to hidden input
+    const otpBoxes = document.querySelectorAll('.otp-box');
+    const hiddenOtp = document.getElementById('otp');
+    const btnVerify = document.getElementById('btn-verify');
+    
+    function updateHiddenOtp() {
+        let val = '';
+        otpBoxes.forEach(box => val += box.value);
+        hiddenOtp.value = val;
+        btnVerify.disabled = val.length !== 6;
+    }
+
+    otpBoxes.forEach((box, i) => {
+        box.addEventListener('input', (e) => {
+            box.value = box.value.replace(/[^0-9]/g, '');
+            if (box.value && i < otpBoxes.length - 1) {
+                otpBoxes[i+1].focus();
+            }
+            updateHiddenOtp();
+        });
+        box.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace' && !box.value && i > 0) {
+                otpBoxes[i-1].focus();
+                otpBoxes[i-1].value = '';
+                updateHiddenOtp();
+            }
+        });
+    });
+
+    document.getElementById('login-form').addEventListener('submit', function() {
+        setTimeout(() => {
+            const email = document.getElementById('email').value;
+            const display = document.getElementById('display-email');
+            if(display && email) display.innerText = email;
+        }, 100);
+    });
+
     OttoLogin.init({
         role: 'mechanic',
         loginEndpoint: '/auth/login/mechanic',

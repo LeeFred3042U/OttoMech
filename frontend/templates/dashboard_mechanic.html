@@ -1,6 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — Mechanic | OttoMech{% endblock %}
 
+{% block nav_links %}
+<a href="/">Home</a>
+<a href="/register/mechanic">Sign Up</a>
+<a href="/login/mechanic">Log In</a>
+{% endblock %}
+
 {% block content %}
 <!-- ── Panel A: Availability Toggle ──────────────────────── -->
 <section id="panel-status" class="step-container">
@@ -37,7 +43,7 @@
             <div class="map-container" id="map-active"></div>
             <div class="gps-indicator">
                 <div class="gps-dot"></div>
-                <span>Sending your location to driver</span>
+                <span>Sending your location to user</span>
             </div>
             <div class="cash-input-row">
                 <span style="font-weight: 600; white-space: nowrap;">₹</span>
@@ -52,9 +58,9 @@
 <!-- ── Job Complete Message ───────────────────────────────── -->
 <section id="panel-done" class="step-container" hidden>
     <div class="card success-card">
-        <div class="success-icon">✅</div>
-        <h1>Job Complete — Well Done!</h1>
-        <p class="subtitle">The driver has been notified. You'll receive new jobs automatically.</p>
+        <div class="success-icon" style="color: var(--text-primary);"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+        <h1>Job Complete</h1>
+        <p class="subtitle">The user has been notified. You'll receive new jobs automatically.</p>
         <button class="btn btn-primary" id="btn-back-online" type="button" style="margin-top: 1rem;">Back to Dashboard</button>
     </div>
 </section>

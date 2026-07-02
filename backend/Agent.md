@@ -36,9 +36,9 @@ OttoMech is a PWA (no app install) that connects stranded users in Lucknow with 
 | 3 | Core dispatch API: job broadcast to 3 mechanics, `job_broadcasts` table, auth middleware on protected routes | ✅ Complete |
 | 4 | Real-time: Socket.IO, mechanic GPS ping → user map (Leaflet), `match_confirmed` event, `rejoin_job`, `socket-status` debug route | ✅ Complete |
 | 5 | Frontend (PWA): registration → OTP login → issue select → mechanic match, Leaflet map integrated | ✅ Complete |
-| 6 | Mechanic dashboard: registration flow, job accept UI, GPS emit loop | 🔄 Current |
-| 7 | MRI scoring (ReportLab PDF receipt — cash amount entered manually by mechanic, no gateway) | ⏳ |
-| 8 | Demo polish: 8 garages live, offline mode, **live registration demo readiness** (this is the demo-day centerpiece) | ⏳ |
+| 6 | Mechanic dashboard: registration flow, job accept UI, GPS emit loop | ✅ Complete |
+| 7 | MRI scoring (ReportLab PDF receipt — cash amount entered manually by mechanic, no gateway) | ✅ Complete |
+| 8 | Demo polish: 8 garages live, offline mode, **live registration demo readiness** (this is the demo-day centerpiece) + **Minimalist UI Overhaul** | ✅ Complete |
 
 **Never work ahead of the current stage.** Do not add Stage 7 features while in Stage 6.
 
@@ -311,7 +311,8 @@ Server → Client (room-targeted):
 ## Demo Day Requirement (Stage 8 centerpiece)
 
 Judges will watch a **live, real-time** user registration and mechanic registration. This means:
-- Registration → OTP (visible in terminal, acceptable for free-tier) → verified → redirected to next screen, all within seconds, on stage, with no visible errors
+- Registration → OTP (visible in terminal or email) → verified → redirected to next screen, all within seconds, on stage, with no visible errors. The backend now uses random 6-digit OTPs that are flushed immediately to stdout.
+- The UI has been fully overhauled to a **brutalist minimalist style** with 0 border radius, polished SVGs, and high-contrast sharp states to look premium.
 - Test this flow at least 10 times before demo day with different phone numbers
 - Have 2–3 backup phone numbers pre-registered in case live registration hits a Neon cold-start during the demo
 - Add a `/health` keep-alive ping (every 5 min) starting at least 10 minutes before the demo slot to avoid Render cold start mid-pitch

@@ -106,7 +106,8 @@ def _store_otp(cur, email, otp_code, purpose):
     # Always print OTP to terminal — demo-day fallback, never removed.
     print(
         f"[OTP] email={email} otp={otp_code} "
-        f"purpose={purpose} expires_at={expires_at.isoformat()}"
+        f"purpose={purpose} expires_at={expires_at.isoformat()}",
+        flush=True
     )
     return expires_at
 

@@ -3,31 +3,41 @@
 {% block title %}Home | OttoMech{% endblock %}
 
 {% block content %}
-<div class="landing-container" style="text-align: center; padding: 40px 20px;">
-    <h1 style="font-size: 2.5rem; color: #333; margin-bottom: 20px;">Welcome to OttoMech</h1>
-    <p style="font-size: 1.2rem; color: #666; margin-bottom: 40px;">The fastest way to get your car fixed. Anywhere, anytime.</p>
+<div class="landing-container">
+    <div class="landing-header">
+        <h1>Get help on the road.</h1>
+        <p>Find a verified mechanic near you in under 5 minutes.</p>
+    </div>
 
-    <div class="action-buttons" style="display: flex; flex-direction: column; gap: 16px; align-items: center;">
-        <a href="/register/user" style="display: inline-block; padding: 15px 30px; background: linear-gradient(135deg, #F5A623, #E6981F); color: white; text-decoration: none; border-radius: 50px; font-weight: 600; font-size: 1.1rem; width: 100%; max-width: 300px; box-shadow: 0 4px 15px rgba(245,166,35,0.3); transition: transform 0.2s ease, box-shadow 0.2s ease;">
-            🚗 I need a Mechanic
-        </a>
-        <a href="/login/user" style="display: inline-block; padding: 12px 30px; background: #FFFFFF; color: #F5A623; text-decoration: none; border-radius: 50px; font-weight: 600; font-size: 0.95rem; width: 100%; max-width: 300px; border: 2px solid #F5A623; transition: transform 0.2s ease, box-shadow 0.2s ease;">
-            Log in as Driver
-        </a>
-        <a href="/register/mechanic" style="display: inline-block; padding: 15px 30px; background: linear-gradient(135deg, #34C759, #2DB84D); color: white; text-decoration: none; border-radius: 50px; font-weight: 600; font-size: 1.1rem; width: 100%; max-width: 300px; box-shadow: 0 4px 15px rgba(52,199,89,0.3); transition: transform 0.2s ease, box-shadow 0.2s ease;">
-            🔧 I am a Mechanic
-        </a>
-        <a href="/login/mechanic" style="display: inline-block; padding: 12px 30px; background: #FFFFFF; color: #34C759; text-decoration: none; border-radius: 50px; font-weight: 600; font-size: 0.95rem; width: 100%; max-width: 300px; border: 2px solid #34C759; transition: transform 0.2s ease, box-shadow 0.2s ease;">
-            Log in as Mechanic
-        </a>
+    <div class="role-cards">
+        <div class="role-card">
+            <div class="role-card-left">
+                <span class="role-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M14 16H9m10 0h3v-3.15a1 1 0 0 0-.84-.99L16 11l-2.7-3.6a2 2 0 0 0-1.6-.8H9.3a2 2 0 0 0-1.6.8L5 11l-5.16.86a1 1 0 0 0-.84.99V16h3m10 0a2 2 0 1 1-4 0m4 0a2 2 0 1 0-4 0m-7 0a2 2 0 1 1-4 0m4 0a2 2 0 1 0-4 0"></path></svg></span>
+                <div class="role-text">
+                    <h2>I need a mechanic</h2>
+                    <p>Get roadside help fast</p>
+                </div>
+            </div>
+            <div class="role-card-right">
+                <a href="/register/user" class="btn btn-primary">Sign up</a>
+                <a href="/login/user" class="btn btn-outline">Log in</a>
+            </div>
+        </div>
+
+        <div class="role-card">
+            <div class="role-card-left">
+                <span class="role-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></span>
+                <div class="role-text">
+                    <h2>I'm a mechanic</h2>
+                    <p>Accept jobs near you</p>
+                </div>
+            </div>
+            <div class="role-card-right">
+                <a href="/register/mechanic" class="btn btn-primary">Sign up</a>
+                <a href="/login/mechanic" class="btn btn-outline">Log in</a>
+            </div>
+        </div>
     </div>
 </div>
-
-<style>
-.action-buttons a:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-}
-</style>
 {% endblock %}
 

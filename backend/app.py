@@ -3,8 +3,8 @@ from dotenv import load_dotenv
 
 import sys
 
-# Only monkey-patch if not running under pytest
-if "pytest" not in sys.argv[0] and "PYTEST_CURRENT_TEST" not in os.environ and not os.environ.get("FLASK_ENV") == "testing":
+# Only monkey-patch if not running under pytest or explicit bypass
+if "pytest" not in sys.argv[0] and "PYTEST_CURRENT_TEST" not in os.environ and not os.environ.get("FLASK_ENV") == "testing" and not os.environ.get("NO_EVENTLET"):
     try:
         import eventlet
         eventlet.monkey_patch()
@@ -21,11 +21,15 @@ from routes.mechanic import mechanic_bp
 from routes.receipt import receipt_bp
 from routes.socket_events import register_socket_events
 
-load_dotenv()
+from dotenv import load_dotenv
+
+env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+load_dotenv(env_path)
 
 # We will instantiate socketio inside create_app for test isolation.
 # Or we can export a dummy global if needed by extensions, but it's better to attach it to app.
-socketio = SocketIO(cors_allowed_origins="*", async_mode="threading" if "PYTEST_CURRENT_TEST" in os.environ else None)
+is_testing = "pytest" in sys.argv[0] or "PYTEST_CURRENT_TEST" in os.environ or os.environ.get("FLASK_ENV") == "testing" or os.environ.get("NO_EVENTLET")
+socketio = SocketIO(cors_allowed_origins="*", async_mode="threading" if is_testing else None)
 
 
 

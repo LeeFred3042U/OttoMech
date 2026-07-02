@@ -1,40 +1,76 @@
 {% extends "base.html" %}
-{% block title %}Dashboard — Driver | OttoMech{% endblock %}
+{% block title %}Dashboard — User | OttoMech{% endblock %}
 
 {% block content %}
 <!-- ── Step 1: Issue Selector ─────────────────────────────── -->
-<section id="step-issue" class="step-container">
-    <div class="card">
-        <h1>What's the problem?</h1>
-        <p class="subtitle">Select your issue type and we'll find help nearby</p>
+<section id="step-issue" class="step-container app-shell">
+    <div class="map-backdrop">
+        <div class="pin-pulse"></div>
+        <div class="pin"></div>
+    </div>
 
-        <div class="issue-grid" id="issue-grid">
-            <button class="issue-card" data-issue="flat_tyre" type="button">
-                <span class="issue-icon">🛞</span>
-                <span class="issue-label">Flat Tyre</span>
+    <div class="sheet">
+        <div class="sheet-grabber"></div>
+        <p class="sheet-eyebrow">Roadside request</p>
+        <h1>What's the problem?</h1>
+        <p class="subtitle">Pick an issue and we'll match you with a nearby mechanic</p>
+
+        <div class="chip-grid" id="issue-grid">
+            <button class="chip" data-issue="flat_tyre" type="button">
+                <span class="chip-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle><line x1="12" y1="2" x2="12" y2="9"></line><line x1="12" y1="15" x2="12" y2="22"></line><line x1="2" y1="12" x2="9" y2="12"></line><line x1="15" y1="12" x2="22" y2="12"></line></svg></span>
+                <span class="chip-label">Flat Tyre</span>
             </button>
-            <button class="issue-card" data-issue="battery" type="button">
-                <span class="issue-icon">🔋</span>
-                <span class="issue-label">Battery</span>
+            <button class="chip" data-issue="battery" type="button">
+                <span class="chip-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="1"></rect><line x1="22" y1="11" x2="22" y2="13"></line><line x1="6" y1="12" x2="10" y2="12"></line><line x1="8" y1="10" x2="8" y2="14"></line></svg></span>
+                <span class="chip-label">Battery</span>
             </button>
-            <button class="issue-card" data-issue="engine" type="button">
-                <span class="issue-icon">⚙️</span>
-                <span class="issue-label">Engine</span>
+            <button class="chip" data-issue="engine" type="button">
+                <span class="chip-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg></span>
+                <span class="chip-label">Engine</span>
             </button>
-            <button class="issue-card" data-issue="overheating" type="button">
-                <span class="issue-icon">🌡️</span>
-                <span class="issue-label">Overheating</span>
+            <button class="chip" data-issue="overheating" type="button">
+                <span class="chip-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"></path></svg></span>
+                <span class="chip-label">Overheating</span>
             </button>
-            <button class="issue-card" data-issue="other" type="button">
-                <span class="issue-icon">🔧</span>
-                <span class="issue-label">Other</span>
+            <button class="chip" data-issue="other" type="button">
+                <span class="chip-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg></span>
+                <span class="chip-label">Other</span>
             </button>
         </div>
 
-        <div class="field" style="margin-top: 1rem;">
-            <label for="photo-upload">Photo (optional, max 1 MB)</label>
-            <input type="file" id="photo-upload" accept="image/*" class="photo-upload-input">
+        <!-- Damage report ticket: photo well + toggled description -->
+        <div class="report-ticket">
+            <label class="upload-well" for="photo-upload">
+                <input type="file" id="photo-upload" accept="image/*" capture="environment">
+                <span class="upload-thumb" id="upload-thumb">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                </span>
+                <span class="upload-copy">
+                    <span class="upload-title" id="upload-title">Add a photo of the damage</span>
+                    <span class="upload-hint" id="upload-hint">Camera or gallery · optional, max 1 MB</span>
+                </span>
+                <button type="button" class="upload-remove" id="upload-remove" hidden>Remove</button>
+            </label>
             <span class="field-error" id="err-photo"></span>
+
+            <hr class="ticket-divider">
+
+            <button type="button" class="desc-toggle" id="desc-toggle">
+                <span class="desc-toggle-left">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    Add a description
+                </span>
+                <span class="desc-toggle-optional">Optional</span>
+            </button>
+            <div class="desc-panel" id="desc-panel">
+                <textarea id="issue-description" maxlength="300" placeholder="e.g. Front-left tyre burst on the highway shoulder, hazards on…"></textarea>
+                <div class="char-count"><span id="desc-count">0</span>/300</div>
+            </div>
+        </div>
+
+        <div class="location-row" id="location-row">
+            <span class="location-dot"></span>
+            <span id="location-text">Locating you…</span>
         </div>
 
         <div class="geo-warning" id="geo-warning" hidden>
@@ -51,10 +87,12 @@
             </div>
         </div>
 
-        <button class="btn btn-primary" id="btn-find" disabled>
-            <span class="btn-text">Find Mechanic</span>
-            <span class="btn-loading" hidden>Finding…</span>
-        </button>
+        <div class="cta-dock">
+            <button class="btn btn-primary" id="btn-find" disabled>
+                <span class="btn-text">Find Mechanic</span>
+                <span class="btn-loading" hidden>Finding…</span>
+            </button>
+        </div>
     </div>
 </section>
 
@@ -80,7 +118,7 @@
         <h1>Mechanic Found! 🎉</h1>
         <div class="mechanic-info-card" id="mechanic-card">
             <div class="mechanic-info-row">
-                <div class="mechanic-avatar">🔧</div>
+                <div class="mechanic-avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
                 <div class="mechanic-details">
                     <h2 id="mech-name">—</h2>
                     <p id="mech-workshop">—</p>
@@ -115,7 +153,7 @@
         <div class="map-container" id="map-tracking"></div>
         <div class="mechanic-info-card" id="tracking-mechanic-card">
             <div class="mechanic-info-row">
-                <div class="mechanic-avatar">🔧</div>
+                <div class="mechanic-avatar"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
                 <div class="mechanic-details">
                     <h2 id="track-mech-name">—</h2>
                     <p id="track-mech-workshop">—</p>
@@ -128,7 +166,7 @@
 <!-- ── Step 5: Job Complete ──────────────────────────────── -->
 <section id="step-complete" class="step-container" hidden>
     <div class="card success-card">
-        <div class="success-icon">✅</div>
+        <div class="success-icon" style="color: var(--text-primary);"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
         <h1>Job Complete</h1>
         <p class="subtitle">Your mechanic has finished the job</p>
         <div class="receipt-card">

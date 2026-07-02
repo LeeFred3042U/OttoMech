@@ -3,8 +3,7 @@
 > **Your mechanic. One tap away.**
 >
 > OttoMech connects stranded motorists in Lucknow with the nearest verified mechanics in under 5 minutes — no app install, no payment gateway, fully real-time.
->
-> Built for **CODESLAYER2k25 · DevSphere India · Open Innovation Track** by Team **GrootForce**.
+> Features a fully responsive, brutalist minimalist UI with sharp corners and zero border radii.
 
 ---
 
@@ -70,22 +69,22 @@ No payment gateway. Cash only. This is intentional.
 ## System Architecture Diagram
 
 ```
-                              ┌────────────────┐
+                              ┌──────────────────┐
                               │  Neon (Neon.tech)│
-                              │  PostgreSQL    │
-                              │  + PostGIS     │
-                              │                │
-                              │  users         │
-                              │  mechanics     │
-                              │  jobs          │
-                              │  job_broadcasts│
-                              │  otp_store     │
-                              │  mri_events    │
-                              │  receipts      │
-                              └───────┬────────┘
+                              │  PostgreSQL      │
+                              │  + PostGIS       │
+                              │                  │
+                              │  users           │
+                              │  mechanics       │
+                              │  jobs            │
+                              │  job_broadcasts  │
+                              │  otp_store       │
+                              │  mri_events      │
+                              │  receipts        │
+                              └───────┬──────────┘
                                       │ psycopg2 (raw SQL)
                                       │
-┌─────────────┐   HTTP/WS    ┌────────┴──────────────────────────┐
+┌─────────────┐   HTTP/WS    ┌────────┴───────────────────────────┐
 │  Browser    │◄────────────►│  Flask + Flask-SocketIO            │
 │  (any)      │              │  (Render free tier)                │
 │             │              │                                    │
@@ -96,9 +95,9 @@ No payment gateway. Cash only. This is intentional.
 │  Socket.IO  │              │    socket    → socket_events.py    │
 │  client     │              │                                    │
 └─────────────┘              │  In-memory:                        │
-                              │    active_jobs dict               │
-                              │    _token_store dict              │
-                              └────────────────────────────────────┘
+                             │    active_jobs dict                │
+                             │    _token_store dict               │
+                             └────────────────────────────────────┘
                                       │
                               ┌───────┴────────┐
                               │  Gmail SMTP    │
@@ -118,7 +117,7 @@ No payment gateway. Cash only. This is intentional.
 | **Database** | Neon PostgreSQL + PostGIS | Free tier, `ST_DWithin` for geo queries, `gen_random_uuid()` for UUIDs. |
 | **DB Driver** | psycopg2 (raw SQL) | PostGIS geography types are cleaner in raw SQL than any ORM. |
 | **Map** | Leaflet.js + OpenStreetMap | Zero API key. Zero billing. Zero demo-day failure risk. |
-| **Frontend** | Jinja2 templates + Vanilla JS | No build step, no npm, works in any browser without install. |
+| **Frontend** | Jinja2 templates + Vanilla JS | No build step, no npm. Brutalist minimalist design. Works in any browser without install. |
 | **Auth** | Custom hex token (`secrets.token_hex`) | Simple, stateless enough for hackathon demo. |
 | **OTP** | Python `smtplib` → Gmail SMTP | No SMS budget. Email OTP with terminal-print fallback for demo. |
 | **PDF** | ReportLab (Stage 7+) | Server-side, free, no external service. |
@@ -589,8 +588,5 @@ flat_tyre | battery | engine | overheating | other
 
 ## Seed Data
 
-20 mechanics across Lucknow zones — 10 real garages (geocoded) + 10 dummy entries. 13 are `is_available=TRUE` by default. Run `python seed.py` to populate (idempotent — safe to run multiple times).
-
+20 mechanics across Lucknow zones — 10 real garages (geocoded) fron justdial + 10 dummy entries. 13 are `is_available=TRUE` by default. Run `python seed.py` to populate (idempotent — safe to run multiple times).
 ---
-
-*Built with 🔧 by Team GrootForce — CODESLAYER2k25*
