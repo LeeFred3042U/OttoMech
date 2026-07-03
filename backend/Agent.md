@@ -306,6 +306,23 @@ Server → Client (room-targeted):
 - **No LocalStorage Auth** — Tokens are kept strictly in JS variables per explicit instruction. State reset on reload.
 - **Client-Side Validations & Demo Mode OTP** — Inline form errors match `{error: "..."}` responses. OTP countdown is handled in JS (300s limit).
 
+## New Decisions (Stage 6 — complete)
+
+- **Mechanic Dashboard State Management** — Uses an IIFE module and relies entirely on JavaScript variables for state. `sessionStorage` is used strictly for handoff upon login/registration, and then immediately cleared. No `localStorage` is used.
+- **GPS Emit Loop** — Polling via `navigator.geolocation.getCurrentPosition` every 4 seconds. Skipped silently on geolocation error to avoid disruptive prompts. Stopped on job completion, offline mode, or page unload.
+- **Map & Icons** — Uses Leaflet map for both mini thumbnail on job cards and active job map, utilizing `L.divIcon` for HTML-based driver and mechanic markers instead of image assets.
+
+## New Decisions (Stage 7 — complete)
+
+- **MRI Scoring Engine** — Computed entirely via a single aggregated SQL query on `mri_events`. Evaluates on-time rate, completion rate, average rating, response speed, and warranty reliability without N+1 queries. Defaults to 50.0 if no events exist.
+- **PDF Receipt Generation** — Uses `reportlab.platypus` (SimpleDocTemplate) server-side to generate a text-based PDF receipt in-memory (`io.BytesIO`), returning a base64 string to the client. No external PDF services or headless browsers used.
+- **Cash Only Flow** — Explicit continuation of the cash-only policy. The platform simply displays the cash amount provided by the mechanic upon completion.
+
+## New Decisions (Stage 8 — complete)
+
+- **Minimalist UI Overhaul** — Brutalist minimalist style applied. 0 border radius, high contrast, and polished SVGs (`oLogo.svg`).
+- **Live Registration Demo Readiness** — Fast OTP loop outputting directly to stdout/email to support the real-time presentation requirements of Demo Day.
+
 ---
 
 ## Demo Day Requirement (Stage 8 centerpiece)
