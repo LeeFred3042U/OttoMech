@@ -1,0 +1,16 @@
+- [x] Create project directory and setup base file structures
+- [x] Create HTML structure (`index.html`) including the OttoMech Logo SVG and screens
+- [x] Create styling stylesheet (`styles.css`) for White and Violet palette, mobile container mockup, and smooth page transitions
+- [x] Implement application logic (`app.js`) to handle state routing, input validations, mock map tracking, and billing
+- [x] Build a service worker (`sw.js`) for basic offline caching support as mentioned in slides
+- [x] Test the application locally
+- [x] Implement mechanic registration and garage detail inputs (HTML/JS updates)
+- [x] Create mechanic dashboard and active status toggle (HTML/CSS updates)
+- [x] Implement booking alert dialog with predicted pricing and distance (JS/HTML/CSS updates)
+- [x] Create mechanic active job tracking map (JS/HTML updates)
+- [x] Implement payment QR code billing panel (HTML/JS/CSS updates)
+- [x] Verify both driver and mechanic paths locally
+- [x] Implement multiple breakdown issue selections and cumulative billing (HTML/JS updates)
+- [x] Enable original GPS location detection and reverse geocoding (JS updates)
+- [x] Integrate Leaflet interactive maps and custom brand CSS filters (HTML/JS/CSS updates)
+- [x] Update walkthrough (`walkthrough.md`)
