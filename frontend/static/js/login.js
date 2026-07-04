@@ -28,12 +28,19 @@ var OttoLogin = (function () {
 
         _els.loginForm = document.getElementById('login-form');
         _els.otpForm = document.getElementById('otp-form');
+        _els.passwordForm = document.getElementById('password-form');
         _els.stepEmail = document.getElementById('step-email');
         _els.stepOtp = document.getElementById('step-otp');
+        _els.stepPassword = document.getElementById('step-password');
+        _els.stepSetupRequired = document.getElementById('step-setup-required');
         _els.loginError = document.getElementById('login-error');
         _els.otpError = document.getElementById('otp-error');
+        _els.passwordError = document.getElementById('password-error');
+        _els.setupError = document.getElementById('setup-error');
         _els.btnLogin = document.getElementById('btn-login');
         _els.btnVerify = document.getElementById('btn-verify');
+        _els.btnLoginPwd = document.getElementById('btn-login-pwd');
+        _els.btnRequestSetup = document.getElementById('btn-request-setup');
         _els.countdown = document.getElementById('otp-countdown');
 
         _els.loginForm.addEventListener('submit', function (e) {
@@ -45,6 +52,53 @@ var OttoLogin = (function () {
             e.preventDefault();
             _handleOtp(cfg);
         });
+
+        if (_els.passwordForm) {
+            _els.passwordForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                _handlePasswordLogin(cfg);
+            });
+        }
+
+        if (_els.btnRequestSetup) {
+            _els.btnRequestSetup.addEventListener('click', function (e) {
+                e.preventDefault();
+                _handleRequestSetup(cfg);
+            });
+        }
+
+        // Wire resend OTP link
+        var resendLink = document.getElementById('resend-link');
+        if (resendLink) {
+            resendLink.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (!_email) return;
+                var role = resendLink.getAttribute('data-role') || _role;
+                resendLink.textContent = 'Sending…';
+                resendLink.style.pointerEvents = 'none';
+
+                fetch('/auth/resend-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: _email, role: role }),
+                })
+                .then(function (res) { return res.json(); })
+                .then(function (body) {
+                    resendLink.textContent = 'Code resent!';
+                    if (body.expires_in_seconds) {
+                        _startCountdown(body.expires_in_seconds);
+                    }
+                    setTimeout(function () {
+                        resendLink.textContent = 'Resend code';
+                        resendLink.style.pointerEvents = '';
+                    }, 3000);
+                })
+                .catch(function () {
+                    resendLink.textContent = 'Failed — try again';
+                    resendLink.style.pointerEvents = '';
+                });
+            });
+        }
     }
 
     // ── Login submit (send OTP) ──────────────────────────────
@@ -66,15 +120,63 @@ var OttoLogin = (function () {
         _email = email;
 
         _postJSON(cfg.loginEndpoint, { email: email }, _els.btnLogin, _els.loginError, function (body) {
-            // Check if email delivery failed
-            if (body.email_delivery === 'failed') {
-                _showEmailWarning('Email delivery failed — check the server terminal for your OTP code.');
+            if (body.auth_method === 'password') {
+                _els.stepEmail.hidden = true;
+                if (_els.stepPassword) {
+                    _els.stepPassword.hidden = false;
+                    document.getElementById('password').focus();
+                }
+            } else if (body.auth_method === 'setup_required') {
+                _els.stepEmail.hidden = true;
+                if (_els.stepSetupRequired) _els.stepSetupRequired.hidden = false;
+            } else if (body.auth_method === 'direct') {
+                sessionStorage.setItem('otto_token_handoff', body.session_token);
+                sessionStorage.setItem('otto_id_handoff', body.id);
+                sessionStorage.setItem('otto_role_handoff', body.role);
+                window.location.href = _dashboardUrl;
+            } else {
+                // Check if email delivery failed
+                if (body.email_delivery === 'failed') {
+                    _showEmailWarning('Email delivery failed — check the server terminal for your OTP code.');
+                }
+                // Show OTP step
+                _els.stepEmail.hidden = true;
+                _els.stepOtp.hidden = false;
+                _startCountdown(body.expires_in_seconds || 300);
+                document.getElementById('otp').focus();
             }
-            // Show OTP step
-            _els.stepEmail.hidden = true;
-            _els.stepOtp.hidden = false;
-            _startCountdown(body.expires_in_seconds || 300);
-            document.getElementById('otp').focus();
+        });
+    }
+
+    // ── Password submit ──────────────────────────────────────
+    function _handlePasswordLogin(cfg) {
+        _clearError(_els.passwordError);
+        var pwdEl = document.getElementById('password');
+        var pwd = (pwdEl.value || '').trim();
+
+        if (!pwd) {
+            _showFieldError('password', 'Password is required');
+            return;
+        }
+
+        var payload = { email: _email, password: pwd };
+
+        _postJSON('/auth/login/user/password', payload, _els.btnLoginPwd, _els.passwordError, function (body) {
+            sessionStorage.setItem('otto_token_handoff', body.session_token);
+            sessionStorage.setItem('otto_id_handoff', body.id);
+            sessionStorage.setItem('otto_role_handoff', body.role);
+            window.location.href = _dashboardUrl;
+        });
+    }
+
+    // ── Request Setup Link ───────────────────────────────────
+    function _handleRequestSetup(cfg) {
+        _clearError(_els.setupError);
+        var payload = { email: _email };
+        
+        _postJSON('/auth/login/user/request-setup-link', payload, _els.btnRequestSetup, _els.setupError, function (body) {
+            _els.btnRequestSetup.hidden = true;
+            document.getElementById('setup-success').style.display = 'block';
         });
     }
 

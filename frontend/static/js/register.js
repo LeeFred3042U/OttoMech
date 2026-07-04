@@ -1,9 +1,9 @@
 /* ═══════════════════════════════════════════════════════════
    OttoMech — register.js
    Handles both user and mechanic registration forms.
-   OTP verification logic.
-   No localStorage/sessionStorage. All state in JS variables.
-   OTP keyed on email, not phone. Geolocation for mechanics.
+   User: form → instant session → redirect to dashboard.
+   Mechanic: form → OTP verification → success screen.
+   No localStorage/sessionStorage except one-time token handoff.
    ═══════════════════════════════════════════════════════════ */
 
 var OttoRegister = (function () {
@@ -26,28 +26,33 @@ var OttoRegister = (function () {
         _role = cfg.role;
 
         _els.registerForm = document.getElementById(cfg.registerFormId);
-        _els.otpForm = document.getElementById(cfg.otpFormId);
         _els.stepRegister = document.getElementById('step-register');
-        _els.stepOtp = document.getElementById('step-otp');
         _els.stepSuccess = document.getElementById('step-success');
         _els.registerError = document.getElementById('register-error');
-        _els.otpError = document.getElementById('otp-error');
         _els.btnRegister = document.getElementById('btn-register');
-        _els.btnVerify = document.getElementById('btn-verify');
-        _els.countdown = document.getElementById('otp-countdown');
         _els.sessionToken = document.getElementById('session-token');
         _els.geoNotice = document.getElementById('geo-notice');
         _els.geoStatus = document.getElementById('geo-status');
+
+        // OTP elements — only exist in mechanic registration
+        _els.otpForm = document.getElementById(cfg.otpFormId || '__noop__');
+        _els.stepOtp = document.getElementById('step-otp');
+        _els.otpError = document.getElementById('otp-error');
+        _els.btnVerify = document.getElementById('btn-verify');
+        _els.countdown = document.getElementById('otp-countdown');
 
         _els.registerForm.addEventListener('submit', function (e) {
             e.preventDefault();
             _handleRegister(cfg);
         });
 
-        _els.otpForm.addEventListener('submit', function (e) {
-            e.preventDefault();
-            _handleOtp();
-        });
+        // Only bind OTP form if it exists (mechanic flow)
+        if (_els.otpForm && _els.otpForm.id !== '__noop__') {
+            _els.otpForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+                _handleOtp();
+            });
+        }
     }
 
     // ── Registration submit ──────────────────────────────────
@@ -129,19 +134,33 @@ var OttoRegister = (function () {
     // ── Submit registration POST ─────────────────────────────
     function _submitRegistration(cfg, data) {
         _postJSON(cfg.endpoint, data, _els.btnRegister, _els.registerError, function (body) {
-            // Check if email delivery failed
-            if (body.email_delivery === 'failed') {
-                _showEmailWarning('Email delivery failed — check the server terminal for your OTP code.');
+            if (_role === 'user') {
+                // User flow: instant session, redirect to dashboard
+                if (body.session_token) {
+                    sessionStorage.setItem('otto_token_handoff', body.session_token);
+                    sessionStorage.setItem('otto_id_handoff', body.id);
+                    sessionStorage.setItem('otto_role_handoff', body.role);
+                    window.location.href = '/dashboard/user';
+                } else {
+                    // Fallback: show success screen
+                    _els.stepRegister.hidden = true;
+                    _els.stepSuccess.hidden = false;
+                }
+            } else {
+                // Mechanic flow: show OTP step
+                if (body.email_delivery === 'failed') {
+                    _showEmailWarning('Email delivery failed — check the server terminal for your OTP code.');
+                }
+                _els.stepRegister.hidden = true;
+                if (_els.stepOtp) _els.stepOtp.hidden = false;
+                _startCountdown(body.expires_in_seconds || 300);
+                var otpInput = document.getElementById('otp');
+                if (otpInput) otpInput.focus();
             }
-            // Show OTP step
-            _els.stepRegister.hidden = true;
-            _els.stepOtp.hidden = false;
-            _startCountdown(body.expires_in_seconds || 300);
-            document.getElementById('otp').focus();
         });
     }
 
-    // ── OTP submit ───────────────────────────────────────────
+    // ── OTP submit (mechanic only) ───────────────────────────
     function _handleOtp() {
         _clearError(_els.otpError);
         var otpEl = document.getElementById('otp');
@@ -161,7 +180,7 @@ var OttoRegister = (function () {
         _postJSON('/auth/verify-otp', payload, _els.btnVerify, _els.otpError, function (body) {
             // Success — show token
             _stopCountdown();
-            _els.stepOtp.hidden = true;
+            if (_els.stepOtp) _els.stepOtp.hidden = true;
             _els.stepSuccess.hidden = false;
             _els.sessionToken.textContent = body.session_token;
         });
@@ -203,9 +222,10 @@ var OttoRegister = (function () {
         });
     }
 
-    // ── Countdown timer ──────────────────────────────────────
+    // ── Countdown timer (mechanic OTP only) ──────────────────
     function _startCountdown(seconds) {
         _stopCountdown();
+        if (!_els.countdown) return;
         var remaining = seconds;
         _renderCountdown(remaining);
 
@@ -228,6 +248,7 @@ var OttoRegister = (function () {
     }
 
     function _renderCountdown(sec) {
+        if (!_els.countdown) return;
         var m = Math.floor(sec / 60);
         var s = sec % 60;
         _els.countdown.textContent = 'Expires in ' + m + ':' + (s < 10 ? '0' : '') + s;
@@ -295,11 +316,12 @@ var OttoRegister = (function () {
             errorFields[j].classList.remove('has-error');
         }
         _clearError(_els.registerError);
-        _clearError(_els.otpError);
+        if (_els.otpError) _clearError(_els.otpError);
     }
 
     // ── Button loading state ─────────────────────────────────
     function _setBtnLoading(btn, loading) {
+        if (!btn) return;
         btn.disabled = loading;
         var textEl = btn.querySelector('.btn-text');
         var loadEl = btn.querySelector('.btn-loading');

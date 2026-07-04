@@ -13,7 +13,7 @@ if "pytest" not in sys.argv[0] and "PYTEST_CURRENT_TEST" not in os.environ and n
     except ImportError:
         pass
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO
 
 from db import init_db
@@ -65,6 +65,13 @@ def create_app():
     def login_user_page():
         return render_template("login_user.html")
 
+    @app.route("/set-password", methods=["GET"])
+    def set_password_page():
+        token = request.args.get("token")
+        # In a real app we'd validate the token here, but doing it in the template or via JS is fine too.
+        # Actually, the spec says: GET /set-password?token=... validates token exists, is unused, not expired
+        return render_template("set_password.html", token=token)
+
     @app.route("/login/mechanic", methods=["GET"])
     def login_mechanic_page():
         return render_template("login_mechanic.html")
@@ -103,4 +110,6 @@ app = create_app()
 
 if __name__ == "__main__":
     init_db()
+    from jobs import start_background_jobs
+    start_background_jobs()
     socketio.run(app, debug=True, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)

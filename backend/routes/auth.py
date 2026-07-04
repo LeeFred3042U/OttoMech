@@ -21,6 +21,7 @@ from email.mime.text import MIMEText
 from functools import wraps
 
 from flask import Blueprint, g, jsonify, request
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from db import get_db
 from routes.common import db_error_response
@@ -195,15 +196,14 @@ def register_user():
                 if cur.fetchone():
                     return jsonify({"error": "Phone number already registered"}), 409
 
-                otp_code = _generate_otp()
-
                 cur.execute(
                     """
                     INSERT INTO users (
                         first_name, last_name, display_name, email,
-                        phone_number, country, language
+                        phone_number, country, language,
+                        status, password_deadline, email_verified
                     )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 'PENDING_PASSWORD', NOW() + INTERVAL '24 hours', FALSE)
                     RETURNING user_id;
                     """,
                     (
@@ -217,18 +217,17 @@ def register_user():
                     ),
                 )
                 user_id = cur.fetchone()[0]
-                _store_otp(cur, email, otp_code, "registration")
     except Exception:
         return db_error_response()
 
-    # Send OTP email after DB commit — failure does not roll back registration
-    email_sent = _send_otp_email(email, otp_code)
+    session_token = secrets.token_hex(32)
+    _token_store[session_token] = {"role": "user", "id": str(user_id)}
 
     return jsonify({
-        "user_id": str(user_id),
-        "message": "OTP sent for registration verification",
-        "expires_in_seconds": OTP_EXPIRY_SECONDS,
-        "email_delivery": "sent" if email_sent else "failed",
+        "message": "Registration successful",
+        "session_token": session_token,
+        "role": "user",
+        "id": str(user_id)
     }), 201
 
 
@@ -490,7 +489,7 @@ def login_user():
         with get_db() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT user_id FROM users WHERE email = %s;",
+                    "SELECT user_id, status, password_hash, password_deadline FROM users WHERE email = %s;",
                     (email,),
                 )
                 row = cur.fetchone()
@@ -499,17 +498,39 @@ def login_user():
                         "error": "No account found for this email. Please register first.",
                     }), 404
 
-                otp_code = _generate_otp()
-                _store_otp(cur, email, otp_code, "login")
+                user_id, status, password_hash, password_deadline = row
+                now = datetime.now(timezone.utc)
+                if password_deadline and password_deadline.tzinfo is None:
+                    password_deadline = password_deadline.replace(tzinfo=timezone.utc)
+
+                if status == 'ACTIVE' and password_hash:
+                    auth_method = 'password'
+                elif status == 'PENDING_PASSWORD' and password_deadline and password_deadline > now:
+                    auth_method = 'direct'
+                elif not password_hash and (not password_deadline or password_deadline <= now):
+                    auth_method = 'setup_required'
+                else:
+                    auth_method = 'setup_required'
+
+                if auth_method == 'password':
+                    return jsonify({"auth_method": "password"}), 200
+                elif auth_method == 'setup_required':
+                    return jsonify({"auth_method": "setup_required", "message": "Password setup required"}), 200
+
+                # auth_method == 'direct'
+                cur.execute("UPDATE users SET last_login = NOW() WHERE user_id = %s;", (user_id,))
     except Exception:
         return db_error_response()
 
-    email_sent = _send_otp_email(email, otp_code)
+    session_token = secrets.token_hex(32)
+    _token_store[session_token] = {"role": "user", "id": str(user_id)}
 
     return jsonify({
-        "message": "OTP sent for login verification",
-        "expires_in_seconds": OTP_EXPIRY_SECONDS,
-        "email_delivery": "sent" if email_sent else "failed",
+        "auth_method": "direct",
+        "message": "Logged in successfully",
+        "session_token": session_token,
+        "role": "user",
+        "id": str(user_id),
     }), 200
 
 
@@ -544,6 +565,246 @@ def login_mechanic():
 
     return jsonify({
         "message": "OTP sent for login verification",
+        "expires_in_seconds": OTP_EXPIRY_SECONDS,
+        "email_delivery": "sent" if email_sent else "failed",
+    }), 200
+
+
+@auth_bp.route("/login/user/request-setup-link", methods=["POST"])
+def request_setup_link():
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT user_id FROM users WHERE email = %s AND status = 'PASSWORD_REQUIRED';", (email,))
+                row = cur.fetchone()
+                if not row:
+                    return jsonify({"message": "If an account exists and requires setup, an email has been sent."}), 200
+                
+                user_id = row[0]
+                token = secrets.token_urlsafe(32)
+                
+                cur.execute("UPDATE password_setup_tokens SET used_at = now() WHERE user_id = %s AND used_at IS NULL;", (user_id,))
+                
+                cur.execute(
+                    "INSERT INTO password_setup_tokens (token, user_id, expires_at) VALUES (%s, %s, now() + interval '1 hour');",
+                    (token, user_id)
+                )
+    except Exception:
+        return db_error_response()
+    
+    print(f"[EMAIL SIMULATION] Password setup link for {email}: /set-password?token={token}")
+    
+    return jsonify({"message": "Setup link generated. Check terminal for details."}), 200
+
+
+@auth_bp.route("/set-password", methods=["POST"])
+def set_password():
+    data = request.get_json(silent=True) or {}
+    token = data.get("token")
+    password = data.get("password")
+    
+    if not token or not password:
+        return jsonify({"error": "Token and password are required"}), 400
+
+    if len(password) < 8:
+        return jsonify({"error": "Password must be at least 8 characters"}), 400
+        
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT user_id FROM password_setup_tokens 
+                    WHERE token = %s AND used_at IS NULL AND expires_at > now();
+                """, (token,))
+                row = cur.fetchone()
+                if not row:
+                    return jsonify({"error": "Invalid or expired setup link"}), 400
+                    
+                user_id = row[0]
+                hashed = generate_password_hash(password)
+                
+                cur.execute("""
+                    UPDATE users 
+                    SET password_hash = %s, status = 'ACTIVE' 
+                    WHERE user_id = %s;
+                """, (hashed, user_id))
+                
+                cur.execute("UPDATE password_setup_tokens SET used_at = now() WHERE token = %s;", (token,))
+    except Exception:
+        return db_error_response()
+        
+    return jsonify({"message": "Password updated successfully"}), 200
+
+
+@auth_bp.route("/login/user/password", methods=["POST"])
+def login_user_password():
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    password = data.get("password")
+    
+    if not email or not password:
+        return jsonify({"error": "Email and password are required"}), 400
+        
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT user_id, password_hash, status FROM users WHERE email = %s;", (email,))
+                row = cur.fetchone()
+                if not row:
+                    return jsonify({"error": "Invalid credentials"}), 401
+                    
+                user_id, password_hash, status = row
+                
+                if status != 'ACTIVE' or not password_hash:
+                    return jsonify({"error": "Password login not available for this account"}), 403
+                    
+                if not check_password_hash(password_hash, password):
+                    return jsonify({"error": "Invalid credentials"}), 401
+                    
+                cur.execute("UPDATE users SET last_login = NOW() WHERE user_id = %s;", (user_id,))
+    except Exception:
+        return db_error_response()
+        
+    session_token = secrets.token_hex(32)
+    _token_store[session_token] = {"role": "user", "id": str(user_id)}
+    
+    return jsonify({
+        "message": "Logged in successfully",
+        "session_token": session_token,
+        "role": "user",
+        "id": str(user_id),
+    }), 200
+
+
+@auth_bp.route("/logout", methods=["POST"])
+@require_auth
+def logout():
+    """Invalidate the current session token."""
+    auth_header = request.headers.get("Authorization", "")
+    token = None
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:].strip()
+    if token and token in _token_store:
+        del _token_store[token]
+    return jsonify({"message": "Logged out successfully"}), 200
+
+
+@auth_bp.route("/me", methods=["GET"])
+@require_auth
+def get_profile():
+    """Return the authenticated user's or mechanic's profile."""
+    role = g.auth["role"]
+    entity_id = g.auth["id"]
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                if role == "user":
+                    cur.execute(
+                        """
+                        SELECT user_id, first_name, last_name, display_name, email,
+                               phone_number, country, status, email_verified,
+                               password_deadline, date_created
+                        FROM users WHERE user_id = %s;
+                        """,
+                        (entity_id,),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        SELECT mechanic_id, first_name, last_name, display_name, email,
+                               phone_number, country, status, email_verified,
+                               workshop_name, zone, is_available, rating, mri_score,
+                               date_created
+                        FROM mechanics WHERE mechanic_id = %s;
+                        """,
+                        (entity_id,),
+                    )
+                row = cur.fetchone()
+    except Exception:
+        return db_error_response()
+
+    if not row:
+        return jsonify({"error": "Account not found"}), 404
+
+    if role == "user":
+        profile = {
+            "id": str(row[0]),
+            "first_name": row[1],
+            "last_name": row[2],
+            "display_name": row[3],
+            "email": row[4],
+            "phone_number": row[5],
+            "country": row[6],
+            "status": row[7],
+            "email_verified": row[8],
+            "password_deadline": row[9].isoformat() if row[9] else None,
+            "date_created": row[10].isoformat() if row[10] else None,
+        }
+    else:
+        profile = {
+            "id": str(row[0]),
+            "first_name": row[1],
+            "last_name": row[2],
+            "display_name": row[3],
+            "email": row[4],
+            "phone_number": row[5],
+            "country": row[6],
+            "status": row[7],
+            "email_verified": row[8],
+            "workshop_name": row[9],
+            "zone": row[10],
+            "is_available": row[11],
+            "rating": float(row[12]) if row[12] else None,
+            "mri_score": float(row[13]) if row[13] else None,
+            "date_created": row[14].isoformat() if row[14] else None,
+        }
+
+    return jsonify({"role": role, "profile": profile}), 200
+
+
+@auth_bp.route("/resend-otp", methods=["POST"])
+def resend_otp():
+    """Resend OTP for mechanic login or registration verification."""
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    role = data.get("role")
+
+    if not email or not EMAIL_PATTERN.match(email):
+        return jsonify({"error": "A valid email address is required"}), 400
+
+    if role not in ("user", "mechanic"):
+        return jsonify({"error": "role must be 'user' or 'mechanic'"}), 400
+
+    # Verify account exists
+    table = "users" if role == "user" else "mechanics"
+    id_col = "user_id" if role == "user" else "mechanic_id"
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"SELECT {id_col} FROM {table} WHERE email = %s;",
+                    (email,),
+                )
+                if not cur.fetchone():
+                    return jsonify({"error": "No account found for this email"}), 404
+
+                otp_code = _generate_otp()
+                _store_otp(cur, email, otp_code, "login")
+    except Exception:
+        return db_error_response()
+
+    email_sent = _send_otp_email(email, otp_code)
+
+    return jsonify({
+        "message": "OTP resent",
         "expires_in_seconds": OTP_EXPIRY_SECONDS,
         "email_delivery": "sent" if email_sent else "failed",
     }), 200

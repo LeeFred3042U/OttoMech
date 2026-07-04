@@ -19,7 +19,7 @@
 
         <div class="form-error" id="login-error" role="alert"></div>
 
-        <button type="submit" class="btn-black" id="btn-login">
+        <button type="submit" class="btn btn-primary btn-full" id="btn-login">
             <span class="btn-text">Continue</span>
             <span class="btn-loading" hidden>Sending…</span>
         </button>
@@ -44,27 +44,70 @@
         <input type="hidden" id="otp" name="otp">
 
         <div class="otp-inputs" id="otp-inputs">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp1" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp2" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp3" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp4" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp5" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp6" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
         </div>
         <span class="field-error" id="err-otp"></span>
 
         <div class="countdown" id="otp-countdown"></div>
         <div class="form-error" id="otp-error" role="alert"></div>
 
-        <button type="submit" class="btn-black" id="btn-verify" disabled>
+        <button type="submit" class="btn btn-primary btn-full" id="btn-verify" disabled>
             <span class="btn-text">Verify code</span>
             <span class="btn-loading" hidden>Verifying…</span>
         </button>
 
         <div class="auth-footer">
-            <a href="#" id="resend-link" style="color: var(--text-muted); pointer-events: none; text-decoration: none;">Resend code</a>
+            <a href="#" id="resend-link" class="resend-otp-link" data-role="user">Resend code</a>
         </div>
     </form>
+</section>
+<!-- ── Step 2b: Password ────────────────────────────────────── -->
+<section class="auth-container" id="step-password" hidden>
+    <div class="auth-header">
+        <p class="auth-eyebrow">Customer</p>
+        <h1>Enter your password</h1>
+        <p>Logging in as <strong id="display-email-pwd">your email</strong></p>
+    </div>
+
+    <form id="password-form" novalidate>
+        <div class="auth-field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required autocomplete="current-password">
+            <span class="field-error" id="err-password"></span>
+        </div>
+
+        <div class="form-error" id="password-error" role="alert"></div>
+
+        <button type="submit" class="btn btn-primary btn-full" id="btn-login-pwd">
+            <span class="btn-text">Log In</span>
+            <span class="btn-loading" hidden>Logging in…</span>
+        </button>
+    </form>
+</section>
+
+<!-- ── Step 2c: Setup Required ──────────────────────────────── -->
+<section class="auth-container" id="step-setup-required" hidden>
+    <div class="auth-header">
+        <p class="auth-eyebrow">Action Required</p>
+        <h1>Password required</h1>
+        <p>Your temporary access has expired. Please set up a password to continue using your account.</p>
+    </div>
+
+    <div class="form-error" id="setup-error" role="alert"></div>
+
+    <button type="button" class="btn btn-primary btn-full" id="btn-request-setup">
+        <span class="btn-text">Send me a setup link</span>
+        <span class="btn-loading" hidden>Sending…</span>
+    </button>
+    
+    <div id="setup-success" style="display:none; text-align:center; color: var(--text-muted); margin-top: 1rem;">
+        Link sent! Check your email.
+    </div>
 </section>
 {% endblock %}
 

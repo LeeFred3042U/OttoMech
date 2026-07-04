@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>OttoMech UI Preview — 2026-07-04</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        :root {
+            /* ── Backgrounds ── */
+            --bg-page:        #FFFFFF;
+            --bg-surface:     #F3EEE7;
+            --bg-sheet:       #FFFFFF;
+            --bg-overlay:     #2B1B14CC;
+
+            /* ── Brand Browns ── */
+            --brand-darkest:  #2B1B14;
+            --brand-dark:     #4A2A20;
+            --brand-mid:      #7B5B4A;
+            --brand-light:    #C7B299;
+            --brand-cream:    #F3EEE7;
+
+            /* ── Text ── */
+            --text-primary:   #2B1B14;
+            --text-secondary: #7B5B4A;
+            --text-inverse:   #FFFFFF;
+            --text-muted:     #C7B299;
+
+            /* ── Accent ── */
+            --accent:         #2B1B14;
+            --accent-hover:   #4A2A20;
+            --accent-pressed: #1A100C;
+            --accent-light:   #F3EEE7;
+
+            /* ── Semantic ── */
+            --success:        #2D6A4F;
+            --success-bg:     #D8F3DC;
+            --error:          #C1121F;
+            --error-bg:       #FFE8E8;
+            --warning:        #E07B39;
+            --warning-bg:     #FFF0E0;
+
+            /* ── Borders ── */
+            --border:         #C7B299;
+            --border-focus:   #2B1B14;
+            --border-subtle:  #E8E2D9;
+
+            /* ── Shadows ── */
+            --shadow-card:    0 1px 3px rgba(43,27,20,0.06),
+                              0 8px 24px rgba(43,27,20,0.08);
+            --shadow-sheet:   0 -4px 20px rgba(43,27,20,0.10);
+            --shadow-nav:     0 -1px 0 #C7B299;
+
+            /* ── Typography ── */
+            --font:           'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-display:   'Inter', -apple-system, sans-serif;
+
+            /* ── Shape ── */
+            --radius-xs:      4px;
+            --radius-sm:      6px;
+            --radius-md:      10px;
+            --radius-lg:      16px;
+            --radius-pill:    999px;
+
+            /* ── Layout ── */
+            --tap-min:        48px;
+            --nav-height:     64px;
+            --nav-pb:         env(safe-area-inset-bottom, 0px);
+        }
+
+        body {
+            font-family: var(--font);
+            background: #EBEBEB;
+            margin: 0;
+            padding: 2rem;
+            color: var(--text-primary);
+        }
+
+        h2.journey-title {
+            margin-top: 3rem;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .phone-row {
+            display: flex;
+            gap: 2rem;
+            overflow-x: auto;
+            padding-bottom: 2rem;
+        }
+
+        .phone-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .phone-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .phone-frame {
+            width: 375px;
+            min-height: 667px;
+            border: 1px solid #C7B299;
+            border-radius: 16px;
+            overflow: hidden;
+            background: var(--bg-page);
+            display: inline-flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 4px 24px rgba(43,27,20,0.12);
+        }
+
+        /* ── Common Components ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            font-family: var(--font);
+            font-size: 0.9375rem;
+            font-weight: 600;
+            line-height: 1;
+            border: none;
+            border-radius: var(--radius-sm);
+            padding: 0 1.25rem;
+            height: var(--tap-min);
+            min-width: 80px;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+            white-space: nowrap;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:disabled { opacity: 0.30; cursor: not-allowed; pointer-events: none; }
+        .btn-primary { background: var(--brand-darkest); color: var(--text-inverse); }
+        .btn-primary:hover { background: var(--brand-dark); }
+        .btn-primary:active { background: var(--accent-pressed); transform: scale(0.98); }
+        .btn-secondary { background: var(--bg-surface); color: var(--text-primary); border: 1.5px solid var(--border); }
+        .btn-secondary:hover { background: #EBE4DA; border-color: var(--brand-mid); }
+        .btn-secondary:active { background: #DDD5C8; transform: scale(0.98); }
+        .btn-ghost { background: transparent; color: var(--text-primary); border: 1.5px solid var(--border); }
+        .btn-ghost:hover { border-color: var(--brand-mid); background: rgba(43,27,20,0.04); }
+        .btn-ghost:active { background: rgba(43,27,20,0.08); transform: scale(0.98); }
+        .btn-icon { background: var(--bg-surface); color: var(--text-primary); border: 1.5px solid var(--border); width: var(--tap-min); min-width: var(--tap-min); padding: 0; border-radius: var(--radius-sm); }
+        .btn-icon:hover { border-color: var(--brand-mid); }
+        .btn-icon:active { background: #DDD5C8; transform: scale(0.96); }
+        .btn-full { width: 100%; }
+        
+        .bottom-nav {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: calc(var(--nav-height) + var(--nav-pb));
+            background: var(--bg-sheet);
+            box-shadow: var(--shadow-nav);
+            display: flex;
+            align-items: stretch;
+            z-index: 100;
+            padding-bottom: var(--nav-pb);
+        }
+        .nav-tab {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+            color: var(--brand-light); font-size: 0.6875rem; font-weight: 500; text-decoration: none;
+            cursor: pointer; border: none; background: none; padding: 0;
+        }
+        .nav-tab svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.75; }
+        .nav-tab.active { color: var(--brand-darkest); font-weight: 700; }
+        .nav-tab.active svg { stroke-width: 2.25; }
+
+        .common-input, .common-select, .common-textarea {
+            height: 52px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+            background: var(--bg-surface); padding: 0 1rem; font-size: 1rem; color: var(--text-primary);
+            width: 100%; box-sizing: border-box; font-family: var(--font); outline: none;
+        }
+        .common-textarea { height: auto; padding: 0.75rem 1rem; }
+        .common-input:focus, .common-select:focus, .common-textarea:focus { border-color: var(--border-focus); }
+        .common-label { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.35rem; display: block; }
+        .input-group { margin-bottom: 1rem; }
+        
+        .screen-content { flex: 1; display: flex; flex-direction: column; }
+        .with-nav { padding-bottom: calc(var(--nav-height) + var(--nav-pb) + 1rem); }
+        
+        .top-arrow { padding: 1rem 1.5rem; font-size: 1.25rem; font-weight: bold; cursor: pointer; text-decoration: none; color: var(--text-primary); }
+        .header-block { padding: 0 1.5rem 1.5rem; }
+        .header-block h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 0.25rem; }
+        .header-block p { font-size: 0.875rem; color: var(--text-secondary); margin: 0; }
+        
+        .role-cards { display: flex; flex-direction: column; gap: 1rem; padding: 0 1.5rem; }
+        .role-card { background: var(--bg-sheet); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 1.125rem; display: flex; align-items: center; gap: 1rem; }
+        .role-card:hover { border-color: var(--border-focus); }
+        .role-card-left { display: flex; align-items: center; gap: 1rem; flex: 1; }
+        .role-card-left svg { width: 40px; height: 40px; stroke: var(--brand-mid); }
+        .role-card-left h3 { font-size: 0.9375rem; font-weight: 700; margin: 0; color: var(--text-primary); }
+        .role-card-left p { font-size: 0.8rem; color: var(--text-secondary); margin: 0; }
+        .role-card-right { display: flex; flex-direction: column; gap: 0.5rem; }
+        
+        .otp-boxes { display: flex; gap: 0.5rem; justify-content: center; }
+        .otp-box { width: 44px; height: 52px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); text-align: center; font-size: 1.5rem; font-weight: 700; background: var(--bg-surface); outline: none; }
+        .otp-box:focus { border-color: var(--border-focus); }
+        .otp-box.filled { border-color: var(--brand-mid); }
+        
+        .notice-box { background: var(--warning-bg); border-left: 3px solid var(--warning); padding: 0.75rem 1rem; border-radius: var(--radius-sm); font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem; }
+        .success-box { background: var(--success-bg); border-left: 3px solid var(--success); padding: 0.75rem 1rem; border-radius: var(--radius-sm); font-size: 0.8rem; display: flex; align-items: center; gap: 0.5rem; }
+        
+        .chip-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; padding: 0 1.5rem; }
+        .chip { background: var(--bg-surface); border: 1.5px solid var(--border); border-radius: var(--radius-sm); padding: 1rem 0.75rem; display: flex; flex-direction: column; align-items: center; gap: 0.5rem; cursor: pointer; }
+        .chip svg { width: 28px; height: 28px; stroke: var(--brand-mid); }
+        .chip span { font-size: 0.8125rem; font-weight: 600; color: var(--text-primary); }
+        .chip.active { background: var(--brand-darkest); border-color: var(--brand-darkest); }
+        .chip.active svg { stroke: var(--bg-surface); }
+        .chip.active span { color: var(--text-inverse); }
+        
+        .bottom-sheet { position: absolute; bottom: 0; left: 0; right: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; box-shadow: var(--shadow-sheet); padding: 1.5rem; background: var(--bg-sheet); z-index: 10; }
+        .avatar-circle { width: 40px; height: 40px; border-radius: 50%; background: var(--bg-surface); display: flex; align-items: center; justify-content: center; color: var(--brand-light); }
+        .badge { background: var(--brand-cream); color: var(--brand-darkest); padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); font-size: 0.8rem; font-weight: 600; }
+        
+        .toggle-track { width: 44px; height: 24px; border-radius: var(--radius-pill); background: var(--border); position: relative; cursor: pointer; transition: background 0.2s; }
+        .toggle-track.active { background: var(--brand-darkest); }
+        .toggle-knob { width: 20px; height: 20px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: transform 0.2s; }
+        .toggle-track.active .toggle-knob { transform: translateX(20px); }
+        
+        .job-card { background: var(--bg-sheet); border: 1.5px solid var(--border); border-radius: var(--radius-md); padding: 1.125rem; margin: 0 1rem; box-shadow: var(--shadow-card); }
+    </style>
+</head>
+<body>
+    <h1>OttoMech UI Preview — 2026-07-04</h1>
+
+    <h2 class="journey-title">User Journey</h2>
+    <div class="phone-row">
+        <!-- Landing -->
+        <div class="phone-wrapper">
+            <span class="phone-label">Landing</span>
+            <div class="phone-frame">
+                <div style="text-align:center; padding:3rem 0 1rem;">
+                    <svg width="120" height="44" viewBox="0 0 120 44" fill="var(--brand-darkest)"><rect width="120" height="44" rx="4" fill="#F3EEE7"/><text x="10" y="30" font-family="Inter" font-weight="700" font-size="20" fill="var(--brand-darkest)">OttoMech</text></svg>
+                </div>
+                <div style="padding:2rem 1.5rem 1rem; text-align:center;">
+                    <h1 style="font-size:2rem; font-weight:700; color:var(--text-primary); margin:0 0 0.5rem;">Get help on the road.</h1>
+                    <p style="font-size:0.9rem; color:var(--text-secondary); margin:0;">Verified mechanics near you. In minutes.</p>
+                </div>
+                <div class="role-cards">
+                    <div class="role-card">
+                        <div class="role-card-left">
+                            <svg viewBox="0 0 24 24" fill="none"><path d="M5 11l-3 5h20l-3-5" stroke="currentColor" stroke-width="2"/><circle cx="7" cy="18" r="2" stroke="currentColor" stroke-width="2"/><circle cx="17" cy="18" r="2" stroke="currentColor" stroke-width="2"/></svg>
+                            <div>
+                                <h3>I need a mechanic</h3>
+                                <p>Get roadside help fast</p>
+                            </div>
+                        </div>
+                        <div class="role-card-right">
+                            <button class="btn btn-primary" style="min-width:88px; height:40px; padding:0 0.5rem; font-size:0.875rem;">Sign up</button>
+                            <button class="btn btn-ghost" style="min-width:88px; height:40px; padding:0 0.5rem; font-size:0.875rem;">Log in</button>
+                        </div>
+                    </div>
+                    <div class="role-card">
+                        <div class="role-card-left">
+                            <svg viewBox="0 0 24 24" fill="none"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" stroke="currentColor" stroke-width="2"/></svg>
+                            <div>
+                                <h3>I'm a mechanic</h3>
+                                <p>Accept jobs near you</p>
+                            </div>
+                        </div>
+                        <div class="role-card-right">
+                            <button class="btn btn-primary" style="min-width:88px; height:40px; padding:0 0.5rem; font-size:0.875rem;">Sign up</button>
+                            <button class="btn btn-ghost" style="min-width:88px; height:40px; padding:0 0.5rem; font-size:0.875rem;">Log in</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Register -->
+        <div class="phone-wrapper">
+            <span class="phone-label">Register</span>
+            <div class="phone-frame">
+                <div class="top-arrow">←</div>
+                <div class="header-block">
+                    <h1>Create account</h1>
+                    <p>Get roadside help in minutes</p>
+                </div>
+                <div style="padding:0 1.5rem;">
+                    <div style="display:flex; gap:0.75rem;">
+                        <div class="input-group" style="flex:1;"><label class="common-label">First Name *</label><input type="text" class="common-input" value="Priya"></div>
+                        <div class="input-group" style="flex:1;"><label class="common-label">Last Name</label><input type="text" class="common-input"></div>
+                    </div>
+                    <div class="input-group"><label class="common-label">Email *</label><input type="email" class="common-input" value="priya@example.com"></div>
+                    <div class="input-group"><label class="common-label">Phone Number *</label><input type="tel" class="common-input" placeholder="+91XXXXXXXXXX"></div>
+                    <div class="input-group">
+                        <label class="common-label">Country Code *</label>
+                        <input type="text" class="common-input" placeholder="IN" maxlength="2">
+                        <span style="font-size:0.75rem; color:var(--text-muted); display:block; margin-top:0.2rem;">2-letter code e.g. IN, US, GB</span>
+                    </div>
+                    <button class="btn btn-primary btn-full" style="margin-top:1rem;">Send OTP</button>
+                    <p style="text-align:center; margin-top:1.5rem; font-size:0.8rem; color:var(--text-secondary);">Already have an account? <span style="font-weight:600; color:var(--text-primary);">Log in</span></p>
+                </div>
+            </div>
+        </div>
+
+        <!-- OTP -->
+        <div class="phone-wrapper">
+            <span class="phone-label">OTP</span>
+            <div class="phone-frame">
+                <div class="top-arrow">←</div>
+                <div class="header-block">
+                    <h1>Verify your email</h1>
+                    <p>Enter the code sent to priya@example.com</p>
+                </div>
+                <div style="padding:0 1.5rem;">
+                    <div class="otp-boxes">
+                        <input type="text" class="otp-box filled" value="1"><input type="text" class="otp-box filled" value="4"><input type="text" class="otp-box filled" value="8"><input type="text" class="otp-box filled" value="9"><input type="text" class="otp-box filled" value="2"><input type="text" class="otp-box">
+                    </div>
+                    <div style="text-align:center; font-size:0.8rem; color:var(--text-muted); margin:1.5rem 0;">Code expires in 4:59<br><span style="color:var(--brand-mid); opacity:0.4;">Resend link</span></div>
+                    <button class="btn btn-primary btn-full" disabled>Verify</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success -->
+        <div class="phone-wrapper">
+            <span class="phone-label">Success</span>
+            <div class="phone-frame">
+                <div style="flex:1; display:flex; flex-direction:column; justify-content:center; padding:0 1.5rem; text-align:center; gap:1rem;">
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" style="margin:0 auto;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <h1 style="font-size:1.375rem; font-weight:700; margin:0;">You're all set.</h1>
+                    <p style="font-size:0.875rem; color:var(--text-secondary); margin:0;">Your account is ready. Set a password to secure it.</p>
+                    <button class="btn btn-primary btn-full" style="margin-top:1rem;">Go home</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Dashboard - Step 1 -->
+        <div class="phone-wrapper">
+            <span class="phone-label">Dashboard - Step 1</span>
+            <div class="phone-frame">
+                <div style="padding:1.25rem 1.5rem 0.5rem;">
+                    <p style="font-size:0.8rem; color:var(--text-secondary); margin:0;">Hello, Priya</p>
+                    <h1 style="font-size:1.375rem; font-weight:700; margin:0;">What's the problem?</h1>
+                </div>
+                <div style="padding:0 1.5rem 1rem;">
+                    <div class="notice-box">
+                        <svg width="20" height="20" stroke="var(--warning)" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <div style="flex:1;">Set a password to secure your account.<br><span style="color:var(--brand-mid); font-weight:600;">Set password →</span></div>
+                        <span style="font-size:1.2rem; cursor:pointer;">×</span>
+                    </div>
+                </div>
+                <div class="chip-grid">
+                    <div class="chip active"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/></svg><span>Flat Tyre</span></div>
+                    <div class="chip"><svg viewBox="0 0 24 24" fill="none"><rect x="2" y="7" width="16" height="10" rx="1" stroke="currentColor" stroke-width="2"/></svg><span>Battery</span></div>
+                    <div class="chip"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg><span>Engine</span></div>
+                    <div class="chip"><svg viewBox="0 0 24 24" fill="none"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" stroke="currentColor" stroke-width="2"/></svg><span>Overheating</span></div>
+                    <div class="chip"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2L2 22h20L12 2z" stroke="currentColor" stroke-width="2"/></svg><span>Other</span></div>
+                </div>
+                <div style="padding:1rem 1.5rem;">
+                    <p style="font-size:0.8rem; font-weight:600; color:var(--text-secondary); margin:0 0 0.5rem;">Add details (optional)</p>
+                    <button class="btn btn-ghost" style="height:auto; min-height:40px; margin-bottom:0.75rem;"><svg width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg> Add photo</button>
+                    <textarea class="common-textarea" rows="3" placeholder="Describe the issue… (300 chars)"></textarea>
+                </div>
+                <div style="padding:0 1.5rem 1rem;">
+                    <p style="font-size:0.8rem; color:var(--success); margin:0; display:flex; align-items:center; gap:0.25rem;"><span style="display:inline-block; width:8px; height:8px; background:var(--success); border-radius:50%;"></span> Location detected</p>
+                </div>
+                <div style="padding:0 1.5rem;">
+                    <button class="btn btn-primary btn-full">Find Mechanic</button>
+                </div>
+                <div class="bottom-nav">
+                    <div class="nav-tab active"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Home</div>
+                    <div class="nav-tab"><svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Activity</div>
+                    <div class="nav-tab"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Account</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard - Step 3 (Match) -->
+        <div class="phone-wrapper">
+            <span class="phone-label">Dashboard - Step 3 (Match)</span>
+            <div class="phone-frame">
+                <div id="map-match" style="flex:1; background:#eee;"></div>
+                <div class="bottom-sheet">
+                    <div style="display:flex; align-items:center; gap:1rem; margin-bottom:1rem;">
+                        <div class="avatar-circle"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+                        <div>
+                            <h2 style="margin:0; font-size:1rem; font-weight:700;">Raju Kumar</h2>
+                            <p style="margin:0; font-size:0.8rem; color:var(--text-secondary);">Raju Auto Works</p>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:0.5rem; margin-bottom:1.5rem;">
+                        <span class="badge">MRI 84</span>
+                        <span class="badge">1.1 km</span>
+                        <span class="badge">~4 min</span>
+                    </div>
+                    <div style="display:flex; gap:0.5rem;">
+                        <button class="btn btn-ghost" style="flex:1;"><svg width="18" height="18" stroke="currentColor" fill="none" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Call</button>
+                        <button class="btn btn-primary" style="flex:2;">OK, got it</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <h2 class="journey-title">Mechanic Journey</h2>
+    <div class="phone-row">
+        <!-- Mechanic Register -->
+        <div class="phone-wrapper">
+            <span class="phone-label">Register</span>
+            <div class="phone-frame">
+                <div class="top-arrow">←</div>
+                <div class="header-block">
+                    <h1>Join as a mechanic</h1>
+                    <p>Get job requests near you</p>
+                </div>
+                <div style="padding:0 1.5rem 2rem; overflow-y:auto;">
+                    <div style="font-size:0.6875rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin:1.5rem 0 0.75rem;">Personal</div>
+                    <div style="display:flex; gap:0.75rem;">
+                        <div class="input-group" style="flex:1;"><label class="common-label">First Name *</label><input type="text" class="common-input" value="Raju"></div>
+                        <div class="input-group" style="flex:1;"><label class="common-label">Last Name *</label><input type="text" class="common-input" value="Kumar"></div>
+                    </div>
+                    <div class="input-group"><label class="common-label">Gender *</label><select class="common-select"><option>Male</option></select></div>
+                    
+                    <div style="font-size:0.6875rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.08em; margin:1.5rem 0 0.75rem;">Contact</div>
+                    <div class="input-group"><label class="common-label">Email *</label><input type="email" class="common-input" value="raju@example.com"></div>
+                    
+                    <div class="success-box" style="margin:1.5rem 0;">📍 Location captured</div>
+                    
+                    <button class="btn btn-primary btn-full">Send OTP</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard - Panel A Online -->
+        <div class="phone-wrapper">
+            <span class="phone-label">Dashboard - Jobs (Online)</span>
+            <div class="phone-frame">
+                <div style="padding:1.25rem 1.5rem; display:flex; justify-content:space-between; align-items:center;">
+                    <h1 style="font-size:1.25rem; font-weight:700; margin:0;">Jobs</h1>
+                    <div style="display:flex; align-items:center; gap:0.5rem;">
+                        <div class="toggle-track active"><div class="toggle-knob"></div></div>
+                        <span style="font-size:0.875rem; font-weight:600; color:var(--text-primary);">Online</span>
+                    </div>
+                </div>
+                <div style="flex:1; display:flex; flex-direction:column; background:var(--bg-surface);">
+                    <div class="job-card" style="margin-top:1rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+                            <span class="badge">Flat Tyre</span>
+                            <span style="font-size:0.8rem; font-weight:600;">1.1 km</span>
+                        </div>
+                        <div id="map-thumbnail" style="height:120px; background:#ddd; border-radius:var(--radius-sm); margin-bottom:1rem;"></div>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button class="btn btn-ghost" style="flex:1;">Decline</button>
+                            <button class="btn btn-primary" style="flex:1;">Accept</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="bottom-nav">
+                    <div class="nav-tab active"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>Jobs</div>
+                    <div class="nav-tab"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>Earnings</div>
+                    <div class="nav-tab"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Account</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard - Panel B Active -->
+        <div class="phone-wrapper">
+            <span class="phone-label">Dashboard - Active Job</span>
+            <div class="phone-frame">
+                <div style="padding:0.75rem 1.25rem; display:flex; justify-content:space-between; align-items:center; background:var(--bg-sheet); position:relative; z-index:10;">
+                    <span class="badge">Flat Tyre</span>
+                    <span style="font-size:1rem; font-weight:700;">1.1 km remaining</span>
+                </div>
+                <div id="map-active-mech" style="flex:1; background:#eee;"></div>
+                <div class="bottom-sheet">
+                    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:1rem;">
+                        <span style="display:inline-block; width:8px; height:8px; background:var(--success); border-radius:50%;"></span>
+                        <span style="font-size:0.875rem; color:var(--text-secondary);">Sharing your location</span>
+                    </div>
+                    <hr style="border:none; border-top:1px solid var(--border-subtle); margin:1rem 0;">
+                    <div class="input-group">
+                        <label class="common-label">CASH COLLECTED (₹)</label>
+                        <input type="number" class="common-input" style="font-size:1.25rem; font-weight:700;" value="450">
+                    </div>
+                    <button class="btn btn-primary btn-full">Mark Complete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Init maps for preview
+        setTimeout(() => {
+            document.querySelectorAll('[id^="map-"]').forEach(el => {
+                const map = L.map(el, {zoomControl: false, attributionControl: false}).setView([26.8467, 80.9462], 13);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                L.circleMarker([26.8467, 80.9462], {color: 'var(--brand-darkest)', fillColor: 'var(--brand-cream)', fillOpacity: 1, radius: 6}).addTo(map);
+            });
+        }, 100);
+    </script>
+</body>
+</html>

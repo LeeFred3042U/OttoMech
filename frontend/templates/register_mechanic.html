@@ -35,7 +35,7 @@
 
         <div class="auth-field">
             <label for="gender">Gender <span class="required">*</span></label>
-            <select id="gender" name="gender" required>
+            <select id="gender" name="gender" required autocomplete="sex">
                 <option value="" disabled selected>Select…</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
@@ -62,8 +62,29 @@
 
         <div class="auth-field">
             <label for="country">Country <span class="required">*</span></label>
-            <input type="text" id="country" name="country" placeholder="IN" maxlength="2" required autocomplete="country">
-            <span class="hint">2-letter code (IN, US, GB…)</span>
+            <select id="country" name="country" required autocomplete="country">
+                <option value="" disabled selected>Select your country</option>
+                <option value="IN">India (IN)</option>
+                <option value="US">United States (US)</option>
+                <option value="GB">United Kingdom (GB)</option>
+                <option value="AE">UAE (AE)</option>
+                <option value="SA">Saudi Arabia (SA)</option>
+                <option value="CA">Canada (CA)</option>
+                <option value="AU">Australia (AU)</option>
+                <option value="DE">Germany (DE)</option>
+                <option value="FR">France (FR)</option>
+                <option value="SG">Singapore (SG)</option>
+                <option value="PK">Pakistan (PK)</option>
+                <option value="BD">Bangladesh (BD)</option>
+                <option value="NP">Nepal (NP)</option>
+                <option value="LK">Sri Lanka (LK)</option>
+                <option value="NG">Nigeria (NG)</option>
+                <option value="ZA">South Africa (ZA)</option>
+                <option value="KE">Kenya (KE)</option>
+                <option value="MY">Malaysia (MY)</option>
+                <option value="PH">Philippines (PH)</option>
+                <option value="JP">Japan (JP)</option>
+            </select>
             <span class="field-error" id="err-country"></span>
         </div>
 
@@ -72,19 +93,19 @@
 
         <div class="auth-field">
             <label for="workshop_name">Workshop Name <span class="required">*</span></label>
-            <input type="text" id="workshop_name" name="workshop_name" placeholder="Raju Auto Works" required>
+            <input type="text" id="workshop_name" name="workshop_name" placeholder="Raju Auto Works" required autocomplete="organization">
             <span class="field-error" id="err-workshop_name"></span>
         </div>
 
         <div class="auth-field">
             <label for="address">Address <span class="required">*</span></label>
-            <input type="text" id="address" name="address" placeholder="Gomti Nagar, Lucknow" required>
+            <input type="text" id="address" name="address" placeholder="Gomti Nagar, Lucknow" required autocomplete="street-address">
             <span class="field-error" id="err-address"></span>
         </div>
 
         <div class="auth-field">
             <label for="zone">Zone <span class="required">*</span></label>
-            <input type="text" id="zone" name="zone" placeholder="Gomti Nagar" required>
+            <input type="text" id="zone" name="zone" placeholder="Gomti Nagar" required autocomplete="address-level2">
             <span class="field-error" id="err-zone"></span>
         </div>
 
@@ -93,9 +114,9 @@
 
         <div class="form-error" id="register-error" role="alert"></div>
 
-        <button type="submit" class="btn-black" id="btn-register">
-            <span class="btn-text">Send code</span>
-            <span class="btn-loading" hidden>Sending…</span>
+        <button type="submit" class="btn btn-primary btn-full" id="btn-register">
+            <span class="btn-text">Register</span>
+            <span class="btn-loading" hidden>Registering…</span>
         </button>
     </form>
 
@@ -118,25 +139,25 @@
         <input type="hidden" id="otp" name="otp">
 
         <div class="otp-inputs" id="otp-inputs">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp1" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp2" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp3" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp4" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp5" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp6" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
         </div>
         <span class="field-error" id="err-otp"></span>
 
         <div class="countdown" id="otp-countdown"></div>
         <div class="form-error" id="otp-error" role="alert"></div>
 
-        <button type="submit" class="btn-black" id="btn-verify" disabled>
+        <button type="submit" class="btn btn-primary btn-full" id="btn-verify" disabled>
             <span class="btn-text">Verify code</span>
             <span class="btn-loading" hidden>Verifying…</span>
         </button>
 
         <div class="auth-footer">
-            <a href="#" id="resend-link" style="color: var(--text-muted); pointer-events: none; text-decoration: none;">Resend code</a>
+            <a href="#" id="resend-link" class="resend-otp-link" data-email="" data-role="mechanic">Resend code</a>
         </div>
     </form>
 </section>
@@ -145,13 +166,13 @@
 <section class="auth-container" id="step-success" hidden>
     <div class="success-card">
         <div class="success-icon">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </div>
         <h1>You're all set.</h1>
         <p class="subtitle">Your email is verified. You'll receive job requests once your account is activated.</p>
         <!-- Hidden: consumed by register.js to store session token -->
         <code id="session-token" style="display:none;"></code>
-        <a href="/" class="btn-black" style="margin-top: 1.5rem; text-decoration: none;">Go home</a>
+        <a href="/" class="btn btn-primary btn-full" style="margin-top: 1.5rem; text-decoration: none;">Go home</a>
     </div>
 </section>
 {% endblock %}

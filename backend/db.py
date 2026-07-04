@@ -16,6 +16,7 @@ DROP TABLE IF EXISTS job_broadcasts CASCADE;
 DROP TABLE IF EXISTS jobs CASCADE;
 DROP TABLE IF EXISTS otp_store CASCADE;
 DROP TABLE IF EXISTS mechanics CASCADE;
+DROP TABLE IF EXISTS password_setup_tokens CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 """
 
@@ -31,13 +32,22 @@ CREATE TABLE users (
     language         VARCHAR(10) DEFAULT 'en',
     profile_photo    TEXT,
     date_created     TIMESTAMPTZ DEFAULT NOW(),
-    status           VARCHAR(20) DEFAULT 'active',
+    status           VARCHAR(20) DEFAULT 'PENDING_PASSWORD' CHECK (status IN ('PENDING_PASSWORD', 'ACTIVE', 'PASSWORD_REQUIRED', 'SUSPENDED', 'DELETED')),
     password_hash    TEXT,
+    password_deadline TIMESTAMPTZ NULL,
     phone_verified   BOOLEAN DEFAULT TRUE,
-    email_verified   BOOLEAN DEFAULT FALSE,
+    email_verified   BOOLEAN DEFAULT FALSE,  /* stays FALSE until user explicitly verifies */
     last_login       TIMESTAMPTZ,
     two_fa_enabled   BOOLEAN DEFAULT FALSE,
     two_fa_method    VARCHAR(20)
+);
+
+CREATE TABLE password_setup_tokens (
+    token       TEXT PRIMARY KEY,
+    user_id     UUID REFERENCES users(user_id),
+    created_at  TIMESTAMPTZ DEFAULT now(),
+    expires_at  TIMESTAMPTZ,
+    used_at     TIMESTAMPTZ NULL
 );
 
 CREATE TABLE mechanics (
@@ -62,7 +72,7 @@ CREATE TABLE mechanics (
     review_count     INT DEFAULT 0,
     mri_score        NUMERIC(5,2) DEFAULT 50.00,
     date_created     TIMESTAMPTZ DEFAULT NOW(),
-    status           VARCHAR(20) DEFAULT 'active',
+    status           VARCHAR(20) DEFAULT 'ACTIVE',
     password_hash    TEXT,
     phone_verified   BOOLEAN DEFAULT TRUE,
     email_verified   BOOLEAN DEFAULT FALSE,

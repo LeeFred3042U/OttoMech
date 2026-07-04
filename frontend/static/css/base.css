@@ -5,63 +5,77 @@
    ═══════════════════════════════════════════════════════════ */
 
 :root {
-  /* ── Brand Palette ────────────────────────────────────────
-     Automotive leather, warm oil, craft-grade metal.          */
-  --brand-900: #2B1B14;   /* Primary dark — espresso */
-  --brand-700: #4A2A20;   /* Secondary dark — mahogany */
-  --brand-500: #7B5B4A;   /* Accent brown */
-  --tan-300:   #C7B299;   /* Neutral tan */
-  --cream-100: #F3EEE7;   /* Background cream */
+  /* ── Backgrounds ── */
+  --bg-page:        #FFFFFF;
+  --bg-surface:     #F3EEE7;
+  --bg-sheet:       #FFFFFF;
+  --bg-overlay:     #2B1B14CC;
 
-  /* ── Backgrounds ──────────────────────────────────────────*/
-  --bg-page:    #FFFFFF;
-  --bg-surface: #F3EEE7;
-  --bg-sheet:   #FFFFFF;
-  --bg-overlay: #2B1B14CC;
+  /* ── Brand Browns ── */
+  --brand-darkest:  #2B1B14;
+  --brand-dark:     #4A2A20;
+  --brand-mid:      #7B5B4A;
+  --brand-light:    #C7B299;
+  --brand-cream:    #F3EEE7;
 
-  /* ── Text ─────────────────────────────────────────────────*/
+  /* ── Text ── */
   --text-primary:   #2B1B14;
   --text-secondary: #7B5B4A;
   --text-inverse:   #FFFFFF;
   --text-muted:     #C7B299;
 
-  /* ── Accent (warm amber CTA) ──────────────────────────────*/
-  --accent:      #2B1B14;   /* Primary CTA = brand-900 */
-  --accent-dark: #1A0F0A;
-  --accent-light: #F3EEE7;
+  /* ── Accent ── */
+  --accent:         #2B1B14;
+  --accent-hover:   #4A2A20;
+  --accent-pressed: #1A100C;
+  --accent-light:   #F3EEE7;
 
-  /* ── Semantic ─────────────────────────────────────────────*/
-  --success: #2E7D52;
-  --error:   #C0392B;
-  --warning: #D4891A;
-  --info:    #4A2A20;
+  /* ── Semantic ── */
+  --success:        #2D6A4F;
+  --success-bg:     #D8F3DC;
+  --error:          #C1121F;
+  --error-bg:       #FFE8E8;
+  --warning:        #E07B39;
+  --warning-bg:     #FFF0E0;
 
-  /* ── Borders ──────────────────────────────────────────────*/
-  --border:       #E8DDD4;
-  --border-warm:  #C7B299;
-  --border-focus: #2B1B14;
+  /* ── Borders ── */
+  --border:         #C7B299;
+  --border-focus:   #2B1B14;
+  --border-subtle:  #E8E2D9;
 
-  /* ── Typography ───────────────────────────────────────────*/
-  --font-display: 'Outfit', 'Space Grotesk', -apple-system, sans-serif;
-  --font:         'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono:    'IBM Plex Mono', 'SF Mono', monospace;
+  /* ── Shadows ── */
+  --shadow-card:    0 1px 3px rgba(43,27,20,0.06),
+                    0 8px 24px rgba(43,27,20,0.08);
+  --shadow-sheet:   0 -4px 20px rgba(43,27,20,0.10);
+  --shadow-nav:     0 -1px 0 #C7B299;
 
-  /* ── Radii ────────────────────────────────────────────────*/
-  --radius-xs:   4px;
-  --radius-sm:   6px;
-  --radius-md:   10px;
-  --radius-lg:   16px;
-  --radius-xl:   20px;
-  --radius-pill: 999px;
+  /* ── Typography ── */
+  --font:           'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display:   'Inter', -apple-system, sans-serif;
 
-  /* ── Shadows ──────────────────────────────────────────────*/
-  --shadow-sm:    0 1px 3px rgba(43, 27, 20, 0.06);
-  --shadow-md:    0 4px 12px rgba(43, 27, 20, 0.08), 0 1px 3px rgba(43, 27, 20, 0.04);
-  --shadow-sheet: 0 -6px 24px rgba(43, 27, 20, 0.10);
-  --shadow-card:  0 2px 8px rgba(43, 27, 20, 0.06);
+  /* ── Shape ── */
+  --radius-xs:      4px;
+  --radius-sm:      6px;
+  --radius-md:      10px;
+  --radius-lg:      16px;
+  --radius-pill:    999px;
 
-  /* ── Transitions ──────────────────────────────────────────*/
-  --transition: 0.18s ease;
+  /* ── Layout ── */
+  --tap-min:        48px;
+  --nav-height:     64px;
+  --nav-pb:         env(safe-area-inset-bottom, 0px);
+
+  /* ── Aliases (referenced but previously missing) ── */
+  --transition:     0.15s ease;
+  --cream-100:      #F3EEE7;
+  --brand-500:      #7B5B4A;
+  --brand-700:      #4A2A20;
+  --brand-900:      #2B1B14;
+  --border-warm:    #B5A08A;
+  --shadow-md:      0 4px 12px rgba(43,27,20,0.10);
+  --font-mono:      'IBM Plex Mono', monospace;
+  --accent-dark:    #1A100C;
+  --radius-xl:      24px;
 }
 
 
@@ -327,209 +341,83 @@ img, svg { display: block; }
    BUTTON SYSTEM
    ═══════════════════════════════════════════════════════════ */
 
-/* Base — all buttons share this */
+/* Base Button */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  width: 100%;
-  min-height: 52px;
-  padding: 0 1.5rem;
+  font-family: var(--font);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1;
   border: none;
-  border-radius: var(--radius-md);
-  font-family: var(--font);
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  transition: background var(--transition), color var(--transition),
-              border-color var(--transition), box-shadow var(--transition),
-              transform 0.1s ease;
-  position: relative;
-  letter-spacing: -0.01em;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.btn:active { transform: scale(0.98); }
-
-.btn:disabled,
-.btn[disabled] {
-  opacity: 0.3;
-  cursor: not-allowed;
-  transform: none;
-  pointer-events: none;
-}
-
-/* Primary — highest emphasis, brand espresso */
-.btn-primary {
-  background: var(--brand-900);
-  color: var(--text-inverse);
-  box-shadow: 0 2px 8px rgba(43, 27, 20, 0.25);
-}
-
-.btn-primary:hover:not(:disabled) {
-  background: var(--accent-dark);
-  box-shadow: 0 4px 14px rgba(43, 27, 20, 0.30);
-}
-
-/* Secondary — supporting action, cream */
-.btn-secondary {
-  background: var(--cream-100);
-  color: var(--text-primary);
-  border: 1.5px solid var(--border);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: #EAE3D9;
-  border-color: var(--border-warm);
-}
-
-/* Ghost — lowest emphasis */
-.btn-ghost {
-  background: transparent;
-  color: var(--text-primary);
-  border: 1.5px solid var(--border);
-}
-
-.btn-ghost:hover:not(:disabled) {
-  background: var(--cream-100);
-  border-color: var(--border-warm);
-}
-
-/* Pill variant */
-.btn-pill {
-  border-radius: var(--radius-pill);
-}
-
-/* Backward compat alias */
-.btn-black {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  min-height: 52px;
-  padding: 0 1.5rem;
-  border: none;
-  border-radius: var(--radius-md);
-  font-family: var(--font);
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  text-decoration: none;
-  transition: background var(--transition), box-shadow var(--transition), transform 0.1s ease;
-  background: var(--brand-900);
-  color: var(--text-inverse);
-  box-shadow: 0 2px 8px rgba(43, 27, 20, 0.22);
-  letter-spacing: -0.01em;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.btn-black:hover:not(:disabled) {
-  background: var(--accent-dark);
-}
-
-.btn-black:active { transform: scale(0.98); }
-
-.btn-black:disabled,
-.btn-black[disabled] {
-  opacity: 0.3;
-  cursor: not-allowed;
-  pointer-events: none;
-  transform: none;
-}
-
-/* Loading spinner inside button */
-.btn-loading {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.btn-loading::before {
-  content: "";
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(255,255,255,0.4);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  flex-shrink: 0;
-}
-
-/* Outline variant for landing role cards */
-.btn-outline {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 0 1.25rem;
-  background: transparent;
-  color: var(--text-primary);
-  border: 1.5px solid var(--border-warm);
-  border-radius: var(--radius-md);
-  font-family: var(--font);
-  font-size: 0.9rem;
-  font-weight: 600;
-  text-decoration: none;
-  cursor: pointer;
-  transition: background var(--transition), border-color var(--transition);
-  white-space: nowrap;
-}
-
-.btn-outline:hover {
-  background: var(--cream-100);
-  border-color: var(--brand-500);
-}
-
-/* Small button variant */
-.btn-sm {
-  min-height: 40px;
-  font-size: 0.875rem;
-  padding: 0 1.1rem;
   border-radius: var(--radius-sm);
-}
-
-/* Icon button — circular */
-.icon-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1.5px solid var(--border);
-  background: var(--bg-page);
-  color: var(--text-primary);
-  text-decoration: none;
+  padding: 0 1.25rem;
+  height: var(--tap-min);
+  min-width: 80px;
   cursor: pointer;
-  transition: border-color var(--transition), background var(--transition), color var(--transition);
-  flex-shrink: 0;
+  position: relative;
+  transition: background 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:disabled { opacity: 0.30; cursor: not-allowed; pointer-events: none; }
+
+/* Variants */
+.btn-primary { background: var(--brand-darkest); color: var(--text-inverse); }
+.btn-primary:hover { background: var(--brand-dark); }
+.btn-primary:active { background: var(--accent-pressed); transform: scale(0.98); }
+
+.btn-secondary { background: var(--bg-surface); color: var(--text-primary); border: 1.5px solid var(--border); }
+.btn-secondary:hover { background: #EBE4DA; border-color: var(--brand-mid); }
+.btn-secondary:active { background: #DDD5C8; transform: scale(0.98); }
+
+.btn-ghost { background: transparent; color: var(--text-primary); border: 1.5px solid var(--border); }
+.btn-ghost:hover { border-color: var(--brand-mid); background: rgba(43,27,20,0.04); }
+.btn-ghost:active { background: rgba(43,27,20,0.08); transform: scale(0.98); }
+
+.btn-icon {
+  background: var(--bg-surface); color: var(--text-primary); border: 1.5px solid var(--border);
+  width: var(--tap-min); min-width: var(--tap-min); padding: 0; border-radius: var(--radius-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.btn-icon:hover { border-color: var(--brand-mid); }
+.btn-icon:active { background: #DDD5C8; transform: scale(0.96); }
+
+/* Full width util */
+.btn-full { width: 100%; }
+
+/* Spinner */
+.btn-loading { display: inline-flex; align-items: center; gap: 0.5rem; }
+.btn-loading::before {
+  content: ''; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,0.4); border-top-color: white;
+  border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0;
 }
 
-.icon-btn:hover {
-  border-color: var(--brand-500);
-  background: var(--cream-100);
-}
-
-.icon-btn.icon-btn-primary {
-  background: var(--brand-900);
-  border-color: var(--brand-900);
-  color: var(--text-inverse);
-}
-
-.icon-btn.icon-btn-primary:hover {
-  background: var(--accent-dark);
-  border-color: var(--accent-dark);
-}
-
-.icon-btn-row {
+/* ── Bottom Navigation ──────────────────────────────────────── */
+.bottom-nav {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  height: calc(var(--nav-height) + var(--nav-pb));
+  background: var(--bg-sheet);
+  box-shadow: var(--shadow-nav);
   display: flex;
-  gap: 0.6rem;
-  flex-shrink: 0;
+  align-items: stretch;
+  z-index: 100;
+  padding-bottom: var(--nav-pb);
 }
+.nav-tab {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  color: var(--brand-light); font-size: 0.6875rem; font-weight: 500; text-decoration: none;
+  cursor: pointer; border: none; background: none; padding: 0;
+}
+.nav-tab svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.75; }
+.nav-tab.active { color: var(--brand-darkest); font-weight: 700; }
+.nav-tab.active svg { stroke-width: 2.25; }
 
+.with-nav { padding-bottom: calc(var(--nav-height) + var(--nav-pb) + 1rem); }
 
 /* ═══════════════════════════════════════════════════════════
    OTP & AUTH

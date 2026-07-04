@@ -484,6 +484,9 @@ def complete_job(job_id):
                     )
 
                 row = _fetch_job(cur, job_id)
+                cur.execute("SELECT is_available FROM mechanics WHERE mechanic_id = %s;", (assigned_mechanic,))
+                mech_row = cur.fetchone()
+                is_available = mech_row[0] if mech_row else False
     except Exception:
         return db_error_response()
 
@@ -501,7 +504,7 @@ def complete_job(job_id):
             "Socket emit 'job_completed' failed for job %s (non-fatal)", job_id
         )
 
-    return jsonify({"job": _serialize_job(row)}), 200
+    return jsonify({"status": "completed", "is_available": is_available}), 200
 
 
 @job_bp.route("/<job_id>", methods=["GET"])
@@ -522,3 +525,91 @@ def get_job(job_id):
         return jsonify({"error": "Job not found"}), 404
 
     return jsonify({"job": _serialize_job(row)})
+
+
+@job_bp.route("/<job_id>/cancel", methods=["PATCH"])
+@require_auth
+def cancel_job(job_id):
+    """Cancel a pending or accepted job. User-only."""
+    job_id = _parse_uuid(job_id, "job_id")
+    if not job_id:
+        return jsonify({"error": "Invalid job_id"}), 400
+
+    if g.auth["role"] != "user":
+        return jsonify({"error": "Only the requesting user can cancel a job"}), 403
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT driver_id, status FROM jobs WHERE job_id = %s;",
+                    (job_id,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return jsonify({"error": "Job not found"}), 404
+
+                driver_id, status = row
+
+                if str(driver_id) != g.auth["id"]:
+                    return jsonify({"error": "Not authorized to cancel this job"}), 403
+
+                if status not in ("pending", "accepted"):
+                    return jsonify({
+                        "error": f"Job cannot be cancelled in '{status}' status",
+                    }), 400
+
+                cur.execute(
+                    "UPDATE jobs SET status = 'cancelled' WHERE job_id = %s;",
+                    (job_id,),
+                )
+    except Exception:
+        return db_error_response()
+
+    return jsonify({"status": "cancelled", "job_id": str(job_id)}), 200
+
+
+@job_bp.route("", methods=["GET"])
+@require_auth
+def list_jobs():
+    """List jobs for the current user or mechanic. Optional ?status= filter."""
+    role = g.auth["role"]
+    entity_id = g.auth["id"]
+    status_filter = request.args.get("status")
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                if role == "user":
+                    col = "j.driver_id"
+                else:
+                    col = "j.mechanic_id"
+
+                query = f"""
+                    SELECT
+                        j.job_id, j.driver_id, j.mechanic_id, j.issue_type,
+                        j.status, j.lat, j.lng, j.cash_amount,
+                        j.created_at, j.accepted_at, j.completed_at,
+                        u.phone_number AS driver_phone,
+                        m.first_name AS mechanic_first_name,
+                        m.workshop_name
+                    FROM jobs j
+                    LEFT JOIN users u ON u.user_id = j.driver_id
+                    LEFT JOIN mechanics m ON m.mechanic_id = j.mechanic_id
+                    WHERE {col} = %s
+                """
+                params = [entity_id]
+
+                if status_filter:
+                    query += " AND j.status = %s"
+                    params.append(status_filter)
+
+                query += " ORDER BY j.created_at DESC LIMIT 50;"
+
+                cur.execute(query, params)
+                rows = cur.fetchall()
+    except Exception:
+        return db_error_response()
+
+    jobs = [_serialize_job(row) for row in rows]
+    return jsonify({"count": len(jobs), "jobs": jobs}), 200

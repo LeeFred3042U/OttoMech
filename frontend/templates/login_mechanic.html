@@ -25,7 +25,7 @@
 
         <div class="form-error" id="login-error" role="alert"></div>
 
-        <button type="submit" class="btn-black" id="btn-login">
+        <button type="submit" class="btn btn-primary btn-full" id="btn-login">
             <span class="btn-text">Continue</span>
             <span class="btn-loading" hidden>Sending…</span>
         </button>
@@ -50,25 +50,25 @@
         <input type="hidden" id="otp" name="otp">
 
         <div class="otp-inputs" id="otp-inputs">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp1" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp2" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp3" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp4" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp5" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" name="otp6" autocomplete="one-time-code" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
         </div>
         <span class="field-error" id="err-otp"></span>
 
         <div class="countdown" id="otp-countdown"></div>
         <div class="form-error" id="otp-error" role="alert"></div>
 
-        <button type="submit" class="btn-black" id="btn-verify" disabled>
+        <button type="submit" class="btn btn-primary btn-full" id="btn-verify" disabled>
             <span class="btn-text">Verify code</span>
             <span class="btn-loading" hidden>Verifying…</span>
         </button>
 
         <div class="auth-footer">
-            <a href="#" id="resend-link" style="color: var(--text-muted); pointer-events: none; text-decoration: none;">Resend code</a>
+            <a href="#" id="resend-link" class="resend-otp-link" data-role="mechanic">Resend code</a>
         </div>
     </form>
 </section>

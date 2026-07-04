@@ -73,7 +73,7 @@
 <section id="panel-done" class="step-container" hidden>
     <div class="success-card">
         <div class="success-icon">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </div>
         <h1>Job Complete</h1>
         <p class="subtitle">The customer has been notified. You'll receive new jobs automatically.</p>
@@ -91,8 +91,31 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+    // Auth guard: redirect to login if no session token
+    if (!sessionStorage.getItem('otto_token_handoff')) {
+        window.location.href = '/login/mechanic';
+    }
+</script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
 <script src="{{ url_for('static', filename='js/dashboard_mechanic.js') }}"></script>
+{% endblock %}
+
+{% block bottom_nav %}
+<div class="bottom-nav">
+    <button type="button" class="nav-tab active">
+        <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        Jobs
+    </button>
+    <button type="button" class="nav-tab">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Earnings
+    </button>
+    <button type="button" class="nav-tab">
+        <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Account
+    </button>
+</div>
 {% endblock %}
