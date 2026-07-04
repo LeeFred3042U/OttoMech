@@ -31,37 +31,11 @@
 
         <div class="auth-field">
             <label for="phone_number">Phone <span class="required">*</span></label>
-            <input type="tel" id="phone_number" name="phone_number" placeholder="+919876543210" required autocomplete="tel">
+            <input type="tel" id="phone_number" name="phone_number" placeholder="9876543210" required autocomplete="tel">
             <span class="field-error" id="err-phone_number"></span>
         </div>
 
-        <div class="auth-field">
-            <label for="country">Country <span class="required">*</span></label>
-            <select id="country" name="country" required autocomplete="country">
-                <option value="" disabled selected>Select your country</option>
-                <option value="IN">India (IN)</option>
-                <option value="US">United States (US)</option>
-                <option value="GB">United Kingdom (GB)</option>
-                <option value="AE">UAE (AE)</option>
-                <option value="SA">Saudi Arabia (SA)</option>
-                <option value="CA">Canada (CA)</option>
-                <option value="AU">Australia (AU)</option>
-                <option value="DE">Germany (DE)</option>
-                <option value="FR">France (FR)</option>
-                <option value="SG">Singapore (SG)</option>
-                <option value="PK">Pakistan (PK)</option>
-                <option value="BD">Bangladesh (BD)</option>
-                <option value="NP">Nepal (NP)</option>
-                <option value="LK">Sri Lanka (LK)</option>
-                <option value="NG">Nigeria (NG)</option>
-                <option value="ZA">South Africa (ZA)</option>
-                <option value="KE">Kenya (KE)</option>
-                <option value="MY">Malaysia (MY)</option>
-                <option value="PH">Philippines (PH)</option>
-                <option value="JP">Japan (JP)</option>
-            </select>
-            <span class="field-error" id="err-country"></span>
-        </div>
+
 
         <div class="form-error" id="register-error" role="alert"></div>
 
@@ -98,7 +72,7 @@
         role: 'user',
         registerFormId: 'register-form',
         endpoint: '/auth/register/user',
-        fields: ['first_name', 'email', 'phone_number', 'country'],
+        fields: ['first_name', 'email', 'phone_number'],
         optionalFields: ['last_name'],
     });
 </script>

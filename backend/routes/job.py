@@ -17,6 +17,7 @@
 # curl http://localhost:5000/jobs/<job_id> \
 #   -H "Authorization: Bearer <token>"
 
+import json
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -61,6 +62,8 @@ def _serialize_job(row):
         "driver_phone": row[11] if len(row) > 11 else None,
         "mechanic_first_name": row[12] if len(row) > 12 else None,
         "workshop_name": row[13] if len(row) > 13 else None,
+        "vehicle_model": row[14] if len(row) > 14 else None,
+        "photos": row[15] if len(row) > 15 else None,
     }
 
 
@@ -81,7 +84,9 @@ def _fetch_job(cur, job_id):
             j.completed_at,
             u.phone_number AS driver_phone,
             m.first_name AS mechanic_first_name,
-            m.workshop_name
+            m.workshop_name,
+            j.vehicle_model,
+            j.photos
         FROM jobs j
         LEFT JOIN users u ON u.user_id = j.driver_id
         LEFT JOIN mechanics m ON m.mechanic_id = j.mechanic_id
@@ -100,10 +105,14 @@ def create_job():
 
     data = request.get_json(silent=True) or {}
     driver_id = g.auth["id"]
-    issue_type = (data.get("issue_type") or "").strip()
-
-    if issue_type not in VALID_ISSUE_TYPES:
+    
+    issue_type_str = (data.get("issue_type") or "").strip()
+    issues = [i.strip() for i in issue_type_str.split(",") if i.strip()]
+    
+    if not issues or not all(i in VALID_ISSUE_TYPES for i in issues):
         return jsonify({"error": "Invalid issue_type"}), 400
+        
+    issue_type = ",".join(issues)
 
     try:
         lat = float(data.get("lat"))
@@ -111,7 +120,9 @@ def create_job():
     except (TypeError, ValueError):
         return jsonify({"error": "lat and lng must be valid numbers"}), 400
 
-    photo_base64 = data.get("photo_base64")
+    photos = data.get("photos")
+    photos_json = json.dumps(photos) if photos else None
+    vehicle_model = data.get("vehicle_model")
 
     try:
         with get_db() as conn:
@@ -122,16 +133,16 @@ def create_job():
                     """
                     INSERT INTO jobs (
                         driver_id, issue_type, status, lat, lng,
-                        driver_location, photo_base64
+                        driver_location, vehicle_model, photos
                     )
                     VALUES (
                         %s, %s, 'pending', %s, %s,
                         ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,
-                        %s
+                        %s, %s
                     )
                     RETURNING job_id;
                     """,
-                    (driver_id, issue_type, lat, lng, lng, lat, photo_base64),
+                    (driver_id, issue_type, lat, lng, lng, lat, vehicle_model, photos_json),
                 )
                 job_id = cur.fetchone()[0]
 
@@ -592,7 +603,9 @@ def list_jobs():
                         j.created_at, j.accepted_at, j.completed_at,
                         u.phone_number AS driver_phone,
                         m.first_name AS mechanic_first_name,
-                        m.workshop_name
+                        m.workshop_name,
+                        j.vehicle_model,
+                        j.photos
                     FROM jobs j
                     LEFT JOIN users u ON u.user_id = j.driver_id
                     LEFT JOIN mechanics m ON m.mechanic_id = j.mechanic_id

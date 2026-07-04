@@ -64,6 +64,7 @@ var OttoMechDashboard = (function () {
         _bindAvailability();
         _bindComplete();
         _bindBackOnline();
+        _bindNavigation();
         _connectSocket();
 
         // Clean up GPS on page unload
@@ -385,12 +386,116 @@ var OttoMechDashboard = (function () {
 
     // ── HTML escaping ────────────────────────────────────────
     function _escapeHtml(str) {
-        var div = document.createElement('div');
+                var div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
     }
 
-    // ── Auto-init ────────────────────────────────────────────
+    // ── Navigation & Tabs ────────────────────────────────────
+    function _bindNavigation() {
+        var tabJobs = document.getElementById('tab-jobs');
+        var tabEarnings = document.getElementById('tab-earnings');
+        var tabAccount = document.getElementById('tab-account');
+        if (!tabJobs || !tabEarnings || !tabAccount) return;
+
+        var panelAccount = document.getElementById('panel-account');
+        var panelStatus = document.getElementById('panel-status');
+        var panelIncoming = document.getElementById('panel-incoming');
+        var panelActive = document.getElementById('panel-active');
+        var panelDone = document.getElementById('panel-done');
+
+        function switchTab(tabId) {
+            tabJobs.classList.toggle('active', tabId === 'jobs');
+            tabEarnings.classList.toggle('active', tabId === 'earnings');
+            tabAccount.classList.toggle('active', tabId === 'account');
+
+            if (tabId === 'account') {
+                if (panelStatus) panelStatus.hidden = true;
+                if (panelIncoming) panelIncoming.hidden = true;
+                if (panelActive) panelActive.hidden = true;
+                if (panelDone) panelDone.hidden = true;
+                if (panelAccount) panelAccount.hidden = false;
+                _fetchAccount();
+            } else if (tabId === 'earnings') {
+                // Not implemented yet
+            } else {
+                if (panelAccount) panelAccount.hidden = true;
+                _showPanel(_currentStep || 'status');
+            }
+        }
+
+        tabJobs.addEventListener('click', function() { switchTab('jobs'); });
+        tabEarnings.addEventListener('click', function() { switchTab('earnings'); });
+        tabAccount.addEventListener('click', function() { switchTab('account'); });
+
+        var btnLogout = document.getElementById('btn-logout');
+        if (btnLogout) {
+            btnLogout.addEventListener('click', function() {
+                var loadEl = btnLogout.querySelector('.btn-loading');
+                var textEl = btnLogout.querySelector('.btn-text');
+                if (textEl) textEl.hidden = true;
+                if (loadEl) loadEl.hidden = false;
+                
+                fetch('/auth/logout', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + _token }
+                })
+                .then(function() {
+                    window.location.href = '/login/mechanic';
+                })
+                .catch(function() {
+                    window.location.href = '/login/mechanic';
+                });
+            });
+        }
+    }
+
+    function _fetchAccount() {
+        fetch('/auth/me', {
+            headers: { 'Authorization': 'Bearer ' + _token }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.profile) {
+                document.getElementById('acct-name').textContent = data.profile.first_name + (data.profile.last_name ? ' ' + data.profile.last_name : '');
+                document.getElementById('acct-workshop').textContent = data.profile.workshop_name || '—';
+                document.getElementById('acct-email').textContent = data.profile.email;
+                document.getElementById('acct-status').textContent = data.profile.status;
+                
+                var badge = document.getElementById('acct-email-badge');
+                if (badge) badge.style.display = data.profile.email_verified ? 'none' : 'inline-block';
+                
+                var setPwdBtn = document.getElementById('btn-set-password');
+                if (setPwdBtn) {
+                    setPwdBtn.style.display = (data.profile.status === 'PENDING_PASSWORD' || !data.profile.password_hash_exists) ? 'block' : 'none';
+                    setPwdBtn.onclick = function() {
+                        var loadEl = setPwdBtn.querySelector('.btn-loading');
+                        var textEl = setPwdBtn.querySelector('.btn-text');
+                        if (textEl) textEl.hidden = true;
+                        if (loadEl) loadEl.hidden = false;
+                        
+                        fetch('/auth/login/mechanic/request-setup-link', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: data.profile.email })
+                        }).then(function() {
+                            if (textEl) textEl.hidden = false;
+                            if (loadEl) loadEl.hidden = true;
+                            alert('Check terminal for the setup link!');
+                        }).catch(function() {
+                            if (textEl) textEl.hidden = false;
+                            if (loadEl) loadEl.hidden = true;
+                        });
+                    };
+                }
+            }
+        })
+        .catch(function() {
+            document.getElementById('acct-name').textContent = 'Error loading profile';
+        });
+    }
+
+    // ── Auto-init on DOMContentLoaded ────────────────────────
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {

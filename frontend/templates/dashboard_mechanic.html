@@ -81,6 +81,44 @@
     </div>
 </section>
 
+<!-- ════════════════════════════════════════════════════════
+     Panel E — Account
+     ════════════════════════════════════════════════════════ -->
+<section id="panel-account" class="step-container" hidden>
+    <div class="card">
+        <h1>Account</h1>
+        <p class="subtitle">Manage your mechanic profile</p>
+        
+        <div class="mechanic-info-card" style="margin-top: 1rem;">
+            <div class="mechanic-id-row" style="padding-bottom:0;">
+                <div class="mechanic-avatar">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </div>
+                <div class="mechanic-id-text">
+                    <h2 id="acct-name">Loading…</h2>
+                    <p id="acct-workshop">—</p>
+                    <p id="acct-email" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">— <span id="acct-email-badge" style="font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; background: var(--warning); color: #000; margin-left: 4px; display: none;">Unverified</span></p>
+                </div>
+            </div>
+            <div class="mechanic-stats" style="margin-top: 1rem; border-top: 1px solid var(--border-warm); padding-top: 1rem; flex-direction: row; display: flex; justify-content: space-around;">
+                <div class="stat">
+                    <span class="stat-value" id="acct-status">—</span>
+                    <span class="stat-label">Status</span>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn btn-outline" id="btn-set-password" type="button" style="margin-top: 1rem; display: none; width: 100%;">
+            <span class="btn-text">Set Password</span>
+        </button>
+
+        <button class="btn btn-ghost" id="btn-logout" type="button" style="margin-top: 2rem; color: var(--error);">
+            <span class="btn-text">Log Out</span>
+            <span class="btn-loading" hidden>Logging out…</span>
+        </button>
+    </div>
+</section>
+
 <!-- Toast -->
 <div class="toast-message" id="toast" hidden></div>
 
@@ -105,15 +143,15 @@
 
 {% block bottom_nav %}
 <div class="bottom-nav">
-    <button type="button" class="nav-tab active">
+    <button type="button" class="nav-tab active" id="tab-jobs">
         <svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
         Jobs
     </button>
-    <button type="button" class="nav-tab">
+    <button type="button" class="nav-tab" id="tab-earnings">
         <svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Earnings
     </button>
-    <button type="button" class="nav-tab">
+    <button type="button" class="nav-tab" id="tab-account">
         <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         Account
     </button>

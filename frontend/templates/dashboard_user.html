@@ -18,6 +18,14 @@
         <h1>What's the problem?</h1>
         <p class="subtitle">Pick an issue — we'll find a mechanic near you</p>
 
+        <p class="form-section-label">Vehicle & Problem</p>
+        
+        <div class="job-field" style="margin-bottom: 1rem;">
+            <label for="vehicle_model" style="display: block; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 500;">Vehicle Model / Name <span class="required">*</span></label>
+            <input type="text" id="vehicle_model" placeholder="e.g. Honda Civic" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); font-family: inherit;">
+            <span class="field-error" id="err-vehicle_model"></span>
+        </div>
+
         <!-- Issue chip grid -->
         <div class="chip-grid" id="issue-grid">
             <button class="chip" data-issue="flat_tyre" type="button">
@@ -55,13 +63,13 @@
         <!-- Damage report ticket -->
         <div class="report-ticket">
             <label class="upload-well" for="photo-upload">
-                <input type="file" id="photo-upload" accept="image/*" capture="environment">
+                <input type="file" id="photo-upload" accept="image/*" capture="environment" multiple>
                 <span class="upload-thumb" id="upload-thumb">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
                 </span>
                 <span class="upload-copy">
-                    <span class="upload-title" id="upload-title">Add a photo</span>
-                    <span class="upload-hint" id="upload-hint">Camera or gallery · optional, max 1 MB</span>
+                    <span class="upload-title" id="upload-title">Add photo(s)</span>
+                    <span class="upload-hint" id="upload-hint">Camera or gallery · optional, max 30 MB</span>
                 </span>
                 <button type="button" class="upload-remove" id="upload-remove" hidden>Remove</button>
             </label>
@@ -238,6 +246,51 @@
     </div>
 </section>
 
+<!-- ════════════════════════════════════════════════════════
+     Panel — Activity
+     ════════════════════════════════════════════════════════ -->
+<section id="panel-activity" class="step-container" hidden>
+    <div class="card">
+        <h1>Activity</h1>
+        <p class="subtitle">Your recent jobs</p>
+        <div id="activity-list" style="margin-top: 1rem;">
+            <p style="color: var(--text-muted); font-size: 0.875rem;">Loading activity...</p>
+        </div>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════
+     Panel — Account
+     ════════════════════════════════════════════════════════ -->
+<section id="panel-account" class="step-container" hidden>
+    <div class="card">
+        <h1>Account</h1>
+        <p class="subtitle">Manage your profile</p>
+        
+        <div class="mechanic-info-card" style="margin-top: 1rem;">
+            <div class="mechanic-id-row" style="padding-bottom:0;">
+                <div class="mechanic-avatar">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </div>
+                <div class="mechanic-id-text">
+                    <h2 id="acct-name">Loading…</h2>
+                    <p id="acct-email">— <span id="acct-email-badge" style="font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; background: var(--warning); color: #000; margin-left: 4px; display: none;">Unverified</span></p>
+                    <p id="acct-phone" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px;">—</p>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn btn-outline" id="btn-set-password" type="button" style="margin-top: 1rem; display: none; width: 100%;">
+            <span class="btn-text">Set Password</span>
+        </button>
+
+        <button class="btn btn-ghost" id="btn-logout" type="button" style="margin-top: 2rem; color: var(--error);">
+            <span class="btn-text">Log Out</span>
+            <span class="btn-loading" hidden>Logging out…</span>
+        </button>
+    </div>
+</section>
+
 <!-- Reconnecting Banner -->
 <div class="reconnecting-banner" id="reconnect-banner" hidden>
     Live updates paused — reconnecting…
@@ -258,15 +311,15 @@
 {% endblock %}
 {% block bottom_nav %}
 <div class="bottom-nav">
-    <button type="button" class="nav-tab active">
+    <button type="button" class="nav-tab active" id="tab-home">
         <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
         Home
     </button>
-    <button type="button" class="nav-tab">
+    <button type="button" class="nav-tab" id="tab-activity">
         <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
         Activity
     </button>
-    <button type="button" class="nav-tab">
+    <button type="button" class="nav-tab" id="tab-account">
         <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         Account
     </button>

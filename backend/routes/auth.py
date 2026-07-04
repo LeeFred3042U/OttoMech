@@ -149,7 +149,7 @@ def _send_otp_email(email, otp_code):
 def register_user():
     data = request.get_json(silent=True) or {}
 
-    required = ["first_name", "email", "phone_number", "country"]
+    required = ["first_name", "email", "phone_number"]
     missing = _missing_fields(data, required)
     if missing:
         return jsonify({
@@ -160,12 +160,7 @@ def register_user():
     if not EMAIL_PATTERN.match(email):
         return jsonify({"error": "Invalid email address"}), 400
 
-    country = data.get("country")
-    if isinstance(country, str):
-        country = country.strip().upper()
-    country_error = _validate_country(country)
-    if country_error:
-        return country_error
+    country = "IN"
 
     phone_number = data.get("phone_number")
     first_name = data.get("first_name")
@@ -241,10 +236,7 @@ def register_mechanic():
         "gender",
         "email",
         "phone_number",
-        "country",
         "workshop_name",
-        "address",
-        "zone",
     ]
     missing = _missing_fields(data, required)
     if missing:
@@ -256,12 +248,7 @@ def register_mechanic():
     if not EMAIL_PATTERN.match(email):
         return jsonify({"error": "Invalid email address"}), 400
 
-    country = data.get("country")
-    if isinstance(country, str):
-        country = country.strip().upper()
-    country_error = _validate_country(country)
-    if country_error:
-        return country_error
+    country = "IN"
 
     # lat/lng are optional — captured via browser geolocation, may be null
     coords = _validate_coordinates(data.get("lat"), data.get("lng"))
@@ -273,8 +260,8 @@ def register_mechanic():
     last_name = data.get("last_name")
     gender = data.get("gender")
     workshop_name = data.get("workshop_name")
-    address = data.get("address")
-    zone = data.get("zone")
+    address = None
+    zone = None
     language = data.get("language") or "en"
     display_name = data.get("display_name") or f"{first_name} {last_name}"
 

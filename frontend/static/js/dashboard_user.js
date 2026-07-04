@@ -15,8 +15,8 @@ var OttoDashboard = (function () {
     var _role = null;
     var _socket = null;
     var _jobId = null;
-    var _selectedIssue = null;
-    var _photoBase64 = null;
+    var _selectedIssues = [];
+    var _photosBase64 = [];
     var _description = '';
     var _driverLat = null;
     var _driverLng = null;
@@ -76,6 +76,7 @@ var OttoDashboard = (function () {
         _bindDescriptionToggle();
         _bindFindButton();
         _bindReceiptButton();
+        _bindNavigation();
         _requestGeolocation();
         _connectSocket();
     }
@@ -94,27 +95,47 @@ var OttoDashboard = (function () {
 
     // ── Issue Selection ──────────────────────────────────────
     function _bindIssueCards() {
+        var vehicleInput = document.getElementById('vehicle_model');
+        if (vehicleInput) {
+            vehicleInput.addEventListener('input', _updateFindButton);
+        }
         var cards = document.querySelectorAll('.chip');
         for (var i = 0; i < cards.length; i++) {
             cards[i].addEventListener('click', function () {
-                // Deselect all
-                var all = document.querySelectorAll('.chip');
-                for (var j = 0; j < all.length; j++) {
-                    all[j].classList.remove('selected');
+                var issue = this.getAttribute('data-issue');
+                if (issue === 'other') {
+                    // Exclusive "other"
+                    for (var j = 0; j < cards.length; j++) cards[j].classList.remove('selected');
+                    this.classList.add('selected');
+                    _selectedIssues = ['other'];
+                } else {
+                    // Toggle current, remove "other"
+                    this.classList.toggle('selected');
+                    var otherCard = document.querySelector('.chip[data-issue="other"]');
+                    if (otherCard) otherCard.classList.remove('selected');
+                    
+                    var index = _selectedIssues.indexOf('other');
+                    if (index > -1) _selectedIssues.splice(index, 1);
+                    
+                    var issueIndex = _selectedIssues.indexOf(issue);
+                    if (this.classList.contains('selected')) {
+                        if (issueIndex === -1) _selectedIssues.push(issue);
+                    } else {
+                        if (issueIndex > -1) _selectedIssues.splice(issueIndex, 1);
+                    }
                 }
-                this.classList.add('selected');
-                _selectedIssue = this.getAttribute('data-issue');
                 _updateFindButton();
             });
         }
     }
 
     function _updateFindButton() {
+        var vehicleModel = document.getElementById('vehicle_model') ? document.getElementById('vehicle_model').value.trim() : '';
         var hasLocation = _geoGranted || (
             document.getElementById('manual-lat').value &&
             document.getElementById('manual-lng').value
         );
-        _els.btnFind.disabled = !(_selectedIssue && hasLocation);
+        _els.btnFind.disabled = !(_selectedIssues.length > 0 && hasLocation && vehicleModel);
     }
 
     // ── Photo Upload ─────────────────────────────────────────
@@ -127,32 +148,45 @@ var OttoDashboard = (function () {
         var defaultThumbHTML = thumb.innerHTML;
 
         function reset() {
-            _photoBase64 = null;
+            _photosBase64 = [];
             input.value = '';
             thumb.innerHTML = defaultThumbHTML;
-            title.textContent = 'Add a photo of the damage';
-            hint.textContent = 'Camera or gallery · optional, max 1 MB';
+            title.textContent = 'Add photo(s)';
+            hint.textContent = 'Camera or gallery · optional, max 30 MB';
             removeBtn.hidden = true;
         }
 
         input.addEventListener('change', function () {
-            var file = input.files[0];
-            if (!file) { reset(); return; }
-            if (file.size > 1024 * 1024) {
-                document.getElementById('err-photo').textContent = 'Photo must be under 1 MB';
+            var files = input.files;
+            if (!files || files.length === 0) { reset(); return; }
+            
+            var totalSize = 0;
+            for (var i = 0; i < files.length; i++) {
+                totalSize += files[i].size;
+            }
+            if (totalSize > 30 * 1024 * 1024) {
+                document.getElementById('err-photo').textContent = 'Total photos must be under 30 MB';
                 reset();
                 return;
             }
+            
             document.getElementById('err-photo').textContent = '';
-            var reader = new FileReader();
-            reader.onload = function (e) {
-                _photoBase64 = e.target.result.split(',')[1]; // strip data URI prefix
-                thumb.innerHTML = '<img src="' + e.target.result + '" alt="Damage photo">';
-                title.textContent = 'Photo attached';
-                hint.textContent = file.name;
-                removeBtn.hidden = false;
-            };
-            reader.readAsDataURL(file);
+            _photosBase64 = [];
+            
+            Array.from(files).forEach(function(file, idx) {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    _photosBase64.push(e.target.result.split(',')[1]);
+                    if (idx === 0) {
+                        thumb.innerHTML = '<img src="' + e.target.result + '" alt="Damage photo">';
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+            
+            title.textContent = files.length + ' photo(s) attached';
+            hint.textContent = 'Total size: ' + (totalSize / (1024*1024)).toFixed(1) + ' MB';
+            removeBtn.hidden = false;
         });
 
         removeBtn.addEventListener('click', function (e) {
@@ -237,13 +271,15 @@ var OttoDashboard = (function () {
 
         _driverLat = lat;
         _driverLng = lng;
+        var vehicleModel = document.getElementById('vehicle_model') ? document.getElementById('vehicle_model').value.trim() : '';
 
         var payload = {
-            issue_type: _selectedIssue,
+            issue_type: _selectedIssues.join(','),
+            vehicle_model: vehicleModel,
             lat: lat,
             lng: lng,
         };
-        if (_photoBase64) payload.photo_base64 = _photoBase64;
+        if (_photosBase64.length > 0) payload.photos = _photosBase64;
         if (_description) payload.description = _description;
 
         _setBtnLoading(_els.btnFind, true);
@@ -312,6 +348,10 @@ var OttoDashboard = (function () {
         _els.stepMatched.hidden = step !== 'matched';
         _els.stepTracking.hidden = step !== 'tracking';
         _els.stepComplete.hidden = step !== 'complete';
+        var panelAccount = document.getElementById('panel-account');
+        if (panelAccount) panelAccount.hidden = step !== 'account';
+        var panelActivity = document.getElementById('panel-activity');
+        if (panelActivity) panelActivity.hidden = step !== 'activity';
     }
 
     // ── Leaflet Maps ─────────────────────────────────────────
@@ -459,6 +499,136 @@ var OttoDashboard = (function () {
         var loadEl = btn.querySelector('.btn-loading');
         if (textEl) textEl.hidden = loading;
         if (loadEl) loadEl.hidden = !loading;
+    }
+
+    // ── Navigation & Tabs ────────────────────────────────────
+    function _bindNavigation() {
+        var tabHome = document.getElementById('tab-home');
+        var tabActivity = document.getElementById('tab-activity');
+        var tabAccount = document.getElementById('tab-account');
+        if (!tabHome || !tabActivity || !tabAccount) return;
+
+        var panelAccount = document.getElementById('panel-account');
+        var stepIssue = document.getElementById('step-issue');
+
+        function switchTab(tabId) {
+            tabHome.classList.toggle('active', tabId === 'home');
+            tabActivity.classList.toggle('active', tabId === 'activity');
+            tabAccount.classList.toggle('active', tabId === 'account');
+
+            if (tabId === 'account') {
+                _showStep('account');
+                _fetchAccount();
+            } else if (tabId === 'activity') {
+                _showStep('activity');
+                _fetchActivity();
+            } else {
+                _showStep('issue');
+            }
+        }
+
+        tabHome.addEventListener('click', function() { switchTab('home'); });
+        tabActivity.addEventListener('click', function() { switchTab('activity'); });
+        tabAccount.addEventListener('click', function() { switchTab('account'); });
+
+        var btnLogout = document.getElementById('btn-logout');
+        if (btnLogout) {
+            btnLogout.addEventListener('click', function() {
+                _setBtnLoading(btnLogout, true);
+                fetch('/auth/logout', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + _token }
+                })
+                .then(function() {
+                    window.location.href = '/login/user';
+                })
+                .catch(function() {
+                    window.location.href = '/login/user';
+                });
+            });
+        }
+    }
+
+    function _fetchAccount() {
+        fetch('/auth/me', {
+            headers: { 'Authorization': 'Bearer ' + _token }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.profile) {
+                document.getElementById('acct-name').textContent = data.profile.first_name + (data.profile.last_name ? ' ' + data.profile.last_name : '');
+                document.getElementById('acct-email').textContent = data.profile.email;
+                document.getElementById('acct-phone').textContent = data.profile.phone_number;
+                
+                var badge = document.getElementById('acct-email-badge');
+                if (badge) badge.style.display = data.profile.email_verified ? 'none' : 'inline-block';
+                
+                var setPwdBtn = document.getElementById('btn-set-password');
+                if (setPwdBtn) {
+                    setPwdBtn.style.display = (data.profile.status === 'PENDING_PASSWORD' || !data.profile.password_hash_exists) ? 'block' : 'none';
+                    setPwdBtn.onclick = function() {
+                        _setBtnLoading(setPwdBtn, true);
+                        fetch('/auth/login/user/request-setup-link', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ email: data.profile.email })
+                        }).then(function() {
+                            _setBtnLoading(setPwdBtn, false);
+                            alert('Check terminal for the setup link!');
+                        }).catch(function() {
+                            _setBtnLoading(setPwdBtn, false);
+                        });
+                    };
+                }
+            }
+        })
+        .catch(function() {
+            document.getElementById('acct-name').textContent = 'Error loading profile';
+        });
+    }
+
+    function _fetchActivity() {
+        var listEl = document.getElementById('activity-list');
+        if (!listEl) return;
+        
+        listEl.innerHTML = '<p style="color: var(--text-muted); font-size: 0.875rem;">Loading activity...</p>';
+        
+        fetch('/jobs', {
+            headers: { 'Authorization': 'Bearer ' + _token }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            listEl.innerHTML = '';
+            if (!data.jobs || data.jobs.length === 0) {
+                listEl.innerHTML = '<p style="color: var(--text-muted); font-size: 0.875rem;">No recent jobs.</p>';
+                return;
+            }
+            
+            data.jobs.forEach(function(job) {
+                var d = new Date(job.created_at).toLocaleDateString();
+                var issues = (job.issue_type || '').split(',').join(', ');
+                var status = job.status || 'unknown';
+                
+                var card = document.createElement('div');
+                card.className = 'mechanic-info-card';
+                card.style.marginBottom = '1rem';
+                card.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-weight: 500; text-transform: capitalize;">${issues}</span>
+                        <span style="font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; background: var(--gray-100);">${status}</span>
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted);">
+                        Date: ${d} <br>
+                        Vehicle: ${job.vehicle_model || '—'} <br>
+                        Amount: ${job.cash_amount != null ? '₹' + job.cash_amount : '—'}
+                    </div>
+                `;
+                listEl.appendChild(card);
+            });
+        })
+        .catch(function() {
+            listEl.innerHTML = '<p style="color: var(--error); font-size: 0.875rem;">Failed to load activity.</p>';
+        });
     }
 
     // ── Auto-init on DOMContentLoaded ────────────────────────

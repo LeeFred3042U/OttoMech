@@ -95,12 +95,14 @@ CREATE TABLE jobs (
     job_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     driver_id        UUID REFERENCES users(user_id),
     mechanic_id      UUID REFERENCES mechanics(mechanic_id),
-    issue_type       VARCHAR(30) NOT NULL,
+    issue_type       TEXT NOT NULL,
+    vehicle_model    VARCHAR(100),
     status           VARCHAR(30) DEFAULT 'pending',
     lat              NUMERIC(9,6),
     lng              NUMERIC(9,6),
     driver_location  GEOGRAPHY(POINT, 4326),
     photo_base64     TEXT,
+    photos           JSONB,
     cash_amount      NUMERIC(8,2),
     created_at       TIMESTAMPTZ DEFAULT NOW(),
     accepted_at      TIMESTAMPTZ,
@@ -192,3 +194,9 @@ def init_db(force_reset=False):
                     ON jobs(job_id) WHERE status = 'pending';
                     """
                 )
+                try:
+                    cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS vehicle_model VARCHAR(100);")
+                    cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS photos JSONB;")
+                    cur.execute("ALTER TABLE jobs ALTER COLUMN issue_type TYPE TEXT;")
+                except Exception:
+                    pass

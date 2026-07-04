@@ -37,6 +37,7 @@ def create_app():
         static_folder=os.path.join(os.path.dirname(__file__), "..", "frontend", "static"),
     )
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "ottomech_dev")
+    app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100MB to support 30MB base64 uploads
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(mechanic_bp)
