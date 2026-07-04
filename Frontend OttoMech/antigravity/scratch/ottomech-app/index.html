@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>OttoMech - Roadside Assistance</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <!-- Leaflet Map CSS/JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+</head>
+<body>
+
+  <!-- Mock Device Outer Wrapper (Centers app on desktop, vanishes on mobile) -->
+  <div class="device-wrapper">
+    <div class="mobile-frame">
+      
+      <!-- Device Top Notch/Status Bar -->
+      <div class="status-bar">
+        <div class="status-time" id="status-time">09:41</div>
+        <div class="status-icons">
+          <!-- Connection / Signal -->
+          <svg class="icon-signal" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M2 19h2v-2H2v2zm4 0h2v-5H6v5zm4 0h2V9h-2v10zm4 0h2V5h-2v14zm4 0h2V2h-2v17z"/>
+          </svg>
+          <!-- Wifi -->
+          <svg class="icon-wifi" viewBox="0 0 24 24" width="16" height="16">
+            <path fill="currentColor" d="M12 21l-8.2-10.3c.3-.2 3-2.7 8.2-2.7s7.9 2.5 8.2 2.7L12 21zm0-15.5C7.5 5.5 4.3 7.5 2 9l2 2.5C5.7 10.3 8.6 9 12 9s6.3 1.3 8 2.5L22 9c-2.3-1.5-5.5-3.5-10-3.5z"/>
+          </svg>
+          <!-- Battery -->
+          <svg class="icon-battery" viewBox="0 0 24 24" width="16" height="16">
+            <rect x="2" y="5" width="16" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>
+            <rect x="5" y="8" width="10" height="6" rx="1" fill="currentColor"/>
+            <path d="M20 9v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- App Header Banner (Global features like Offline Toggle) -->
+      <header class="app-header">
+        <div class="offline-toggle-container">
+          <label class="switch">
+            <input type="checkbox" id="offline-toggle">
+            <span class="slider round"></span>
+          </label>
+          <span class="offline-label" id="network-status">Online Mode</span>
+        </div>
+      </header>
+
+      <!-- App Screen Container -->
+      <main class="app-container" id="app-container">
+
+        <!-- 1. LANDING SCREEN -->
+        <section class="screen active" id="screen-landing">
+          <div class="brand-showcase">
+            <div class="logo-container" id="logo-landing">
+              <!-- Animated Violet SVG Gear Logo will be inserted here by JS -->
+            </div>
+            <h1 class="brand-title">Your Mechanic.<br>One Tap Away.</h1>
+            <p class="brand-subtitle">Because breakdowns don't wait. Verified road help in under 5 minutes.</p>
+          </div>
+
+          <div class="role-selector">
+            <div class="role-card user-card active" onclick="selectRole('user')">
+              <div class="role-icon">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                  <path fill="currentColor" d="M19 20H5v-1a7 7 0 0 1 14 0v1zM12 4a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/>
+                </svg>
+              </div>
+              <div class="role-info">
+                <h3>I need a mechanic</h3>
+                <p>Get roadside help fast</p>
+              </div>
+            </div>
+
+            <div class="role-card mechanic-card" onclick="selectRole('mechanic')">
+              <div class="role-icon">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                  <path fill="currentColor" d="M12 2a10 10 0 0 0-7.75 16.3l1.45-1.45a8 8 0 1 1 12.6 0l1.45 1.45A10 10 0 0 0 12 2zm1 4v3.5a1.5 1.5 0 0 1-3 0V6a2 2 0 1 0-4 0v9.17a3 3 0 1 0 6 0V11a.5.5 0 0 1 1 0v4.17a3 3 0 1 0 6 0V6a2 2 0 1 0-4 0z"/>
+                </svg>
+              </div>
+              <div class="role-info">
+                <h3>I'm a mechanic</h3>
+                <p>Accept jobs near you</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="landing-actions">
+            <button class="btn btn-primary" onclick="goToScreen('signup')">Sign Up</button>
+            <button class="btn btn-secondary" onclick="goToScreen('login')">Log In</button>
+          </div>
+        </section>
+
+        <!-- 2. SIGN UP / REGISTRATION SCREEN -->
+        <section class="screen" id="screen-signup">
+          <button class="btn-back" onclick="goToScreen('landing')">
+            <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          </button>
+          
+          <div class="screen-logo-header">
+            <div class="logo-container-small" id="logo-signup"></div>
+          </div>
+
+          <div class="form-header">
+            <h2>Create your account</h2>
+            <p class="step-indicator">Register a new profile</p>
+          </div>
+
+          <form id="signup-form" onsubmit="handleSignup(event)">
+            <div class="input-group">
+              <label for="first-name">FIRST NAME</label>
+              <input type="text" id="first-name" placeholder="e.g. Aarav" required>
+            </div>
+            
+            <div class="input-group">
+              <label for="last-name">LAST NAME</label>
+              <input type="text" id="last-name" placeholder="e.g. Sharma" required>
+            </div>
+
+            <div class="input-group">
+              <label for="phone">PHONE NUMBER</label>
+              <div class="phone-input-wrapper">
+                <div class="country-code">
+                  <span class="flag">🇮🇳</span>
+                  <span>+91</span>
+                </div>
+                <input type="tel" id="phone" placeholder="98765 43210" pattern="[0-9]{10}" required>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label for="email">EMAIL ADDRESS</label>
+              <input type="email" id="email" placeholder="name@email.com" required>
+            </div>
+
+            <div class="input-group">
+              <label for="signup-password">PASSWORD</label>
+              <input type="password" id="signup-password" placeholder="Min 6 characters" minlength="6" required>
+            </div>
+
+            <!-- Mechanic Specific Conditional Fields -->
+            <div id="mechanic-fields" class="hidden">
+              <div class="input-group">
+                <label>MECHANIC AFFILIATION</label>
+                <div class="affiliation-selector" style="display: flex; gap: 10px; margin-top: 8px;">
+                  <label class="affiliation-option active" id="aff-ind" style="flex: 1; text-align: center; padding: 12px; border: 1.5px solid var(--primary-violet); border-radius: 12px; cursor: pointer; font-size: 12.5px; font-weight: 750; background-color: var(--violet-50); display: block; color: var(--primary-violet);">
+                    <input type="radio" name="affiliation" value="independent" checked onclick="toggleGarageFields(false)" style="margin-right: 6px;">
+                    Independent
+                  </label>
+                  <label class="affiliation-option" id="aff-gar" style="flex: 1; text-align: center; padding: 12px; border: 1.5px solid var(--gray-200); border-radius: 12px; cursor: pointer; font-size: 12.5px; font-weight: 750; background-color: var(--white); display: block; color: var(--text-dark);">
+                    <input type="radio" name="affiliation" value="garage" onclick="toggleGarageFields(true)" style="margin-right: 6px;">
+                    Has Garage
+                  </label>
+                </div>
+              </div>
+              
+              <div id="garage-details-container" class="hidden">
+                <div class="input-group">
+                  <label for="garage-name">GARAGE NAME</label>
+                  <input type="text" id="garage-name" placeholder="e.g. Lucknow Auto Works">
+                </div>
+                <div class="input-group">
+                  <label for="garage-address">GARAGE ADDRESS</label>
+                  <input type="text" id="garage-address" placeholder="e.g. Hazratganj, Lucknow">
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-submit">Register Account &rarr;</button>
+          </form>
+
+          <p style="margin-top: 20px; font-size: 13px; color: var(--text-light); text-align: center;">
+            Already have an account? <span onclick="goToScreen('login')" style="color: var(--primary-violet); font-weight: 700; cursor: pointer;">Log In here</span>
+          </p>
+        </section>
+
+        <!-- 3. LOGIN SCREEN -->
+        <section class="screen" id="screen-login">
+          <button class="btn-back" onclick="goToScreen('landing')">
+            <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          </button>
+          
+          <div class="screen-logo-header">
+            <div class="logo-container-small" id="logo-login"></div>
+          </div>
+
+          <div class="form-header">
+            <h2>Log In</h2>
+            <p class="login-subtitle">Enter your credentials to access your account</p>
+          </div>
+
+          <form id="login-form" onsubmit="handleLogin(event)">
+            <div class="input-group">
+              <label for="login-email-phone">EMAIL OR PHONE NUMBER</label>
+              <input type="text" id="login-email-phone" placeholder="name@email.com or 9876543210" required>
+            </div>
+            
+            <div class="input-group">
+              <label for="login-password">PASSWORD</label>
+              <input type="password" id="login-password" placeholder="••••••••" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-submit">Log In &rarr;</button>
+          </form>
+
+          <p style="margin-top: 24px; font-size: 13px; color: var(--text-light); text-align: center;">
+            Don't have an account? <span onclick="goToScreen('signup')" style="color: var(--primary-violet); font-weight: 700; cursor: pointer;">Register here</span>
+          </p>
+        </section>
+
+        <!-- 4. HOME / MAP & ISSUE SELECTOR SCREEN -->
+        <section class="screen" id="screen-home">
+          <!-- Interactive Map Canvas Background -->
+          <div class="map-wrapper">
+            <div id="map-canvas" style="width: 100%; height: 100%;"></div>
+            
+            <!-- Map Controls overlay -->
+            <button class="map-ctrl-btn btn-locate" onclick="reLocateUser()" title="Locate Me">
+              <svg viewBox="0 0 24 24" width="20" height="20">
+                <path fill="currentColor" d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+              </svg>
+            </button>
+          </div>
+
+          <!-- Bottom Card Panel (Issue Selector) -->
+          <div class="bottom-sheet" id="home-bottom-sheet">
+            <!-- Location Indicator Header -->
+            <div class="location-bar">
+              <div class="dot-indicator pulse-violet"></div>
+              <div class="location-text">
+                <span class="loc-label">CURRENT LOCATION</span>
+                <span class="loc-value" id="current-location-val">Gomti Nagar, Lucknow</span>
+              </div>
+              <button class="btn-edit-loc" onclick="triggerLocationSearch()">Edit</button>
+            </div>
+
+            <div class="sheet-title">What's the issue?</div>
+
+            <!-- Issue Grid selector -->
+            <div class="issue-grid">
+              <div class="issue-item active" onclick="selectIssue(this, 'Flat tyre')">
+                <div class="issue-icon">💡</div>
+                <div class="issue-label">Flat tyre</div>
+                <span class="issue-sub">Puncture or blowout</span>
+              </div>
+
+              <div class="issue-item" onclick="selectIssue(this, 'Battery')">
+                <div class="issue-icon">🔋</div>
+                <div class="issue-label">Battery</div>
+                <span class="issue-sub">Dead/weak battery</span>
+              </div>
+
+              <div class="issue-item" onclick="selectIssue(this, 'Engine')">
+                <div class="issue-icon">⚙️</div>
+                <div class="issue-label">Engine</div>
+                <span class="issue-sub">Won't start/stall</span>
+              </div>
+
+              <div class="issue-item" onclick="selectIssue(this, 'Overheating')">
+                <div class="issue-icon">🌡️</div>
+                <div class="issue-label">Overheating</div>
+                <span class="issue-sub">Temp warning lit</span>
+              </div>
+
+              <div class="issue-item" onclick="selectIssue(this, 'Other')">
+                <div class="issue-icon">🔧</div>
+                <div class="issue-label">Other</div>
+                <span class="issue-sub">General repair</span>
+              </div>
+            </div>
+
+            <!-- Upload section -->
+            <div class="upload-container">
+              <label class="upload-box" id="photo-upload-label">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                  <path fill="currentColor" d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                </svg>
+                <span>Upload breakdown photo (optional)</span>
+                <input type="file" id="photo-file" accept="image/*" onchange="handlePhotoUpload(event)">
+              </label>
+              <div id="photo-preview-container" class="hidden">
+                <img id="photo-preview" src="" alt="Breakdown preview">
+                <button class="btn-remove-photo" onclick="removePhoto()">×</button>
+              </div>
+            </div>
+
+            <!-- Lock Fare Info -->
+            <div class="pricing-lock-badge">
+              <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+              <span>Upfront Pricing Active. No surprise charges.</span>
+            </div>
+
+            <!-- Find Mechanic Action -->
+            <button class="btn btn-primary" onclick="startDispatch()">Find mechanic &rarr;</button>
+          </div>
+        </section>
+
+        <!-- 5. DISPATCHING SCREEN -->
+        <section class="screen" id="screen-dispatch">
+          <div class="dispatch-map-view">
+            <!-- Simulated Radar Scan Animation -->
+            <div class="radar-container">
+              <div class="radar-circle circle1"></div>
+              <div class="radar-circle circle2"></div>
+              <div class="radar-circle circle3"></div>
+              <div class="radar-logo">
+                <img src="logo.jpg" alt="OttoMech Logo" style="width: 70%; height: 70%; object-fit: contain; border-radius: 50%;">
+              </div>
+            </div>
+            <div class="dispatch-header">
+              <h2>Finding mechanics nearby</h2>
+              <p>Searching verified garages in Lucknow...</p>
+            </div>
+          </div>
+
+          <!-- Bottom Mechanic List -->
+          <div class="dispatch-sheet">
+            <div class="nearest-headline">⚡ Nearest in ~3 mins</div>
+            <div class="mechanics-list" id="mechanics-list">
+              <!-- Seeded Mechanics dynamic cards go here -->
+            </div>
+          </div>
+        </section>
+
+        <!-- 6. LIVE TRACKING SCREEN -->
+        <section class="screen" id="screen-tracking">
+          <!-- Map Canvas for Tracking -->
+          <div class="map-wrapper">
+            <div id="tracking-canvas" style="width: 100%; height: 100%;"></div>
+            <div class="eta-banner">
+              <span class="eta-time" id="tracking-eta">4 mins</span>
+              <span class="eta-status">Deepak Singh is on the way</span>
+            </div>
+          </div>
+
+          <!-- Tracking Bottom Sheet -->
+          <div class="bottom-sheet tracking-sheet">
+            <div class="tracker-mechanic-card">
+              <div class="avatar" id="tracking-mechanic-avatar">DS</div>
+              <div class="details">
+                <h3 id="tracking-mechanic-name">Deepak Singh</h3>
+                <div class="rating-sub">⭐ 4.8 &bull; Gomti Nagar &bull; <span class="mri-badge" id="tracking-mri">MRI: 98%</span></div>
+                <div class="vehicle-plate" id="tracking-vehicle">Royal Enfield Bullet &bull; UP 32 AB 1234</div>
+              </div>
+            </div>
+
+            <!-- Quick Action Buttons -->
+            <div class="tracking-actions">
+              <button class="action-btn btn-call" onclick="triggerCall()" style="width: 100%;">
+                <svg viewBox="0 0 24 24" width="20" height="20">
+                  <path fill="currentColor" d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                </svg>
+                <span>Call Mechanic</span>
+              </button>
+            </div>
+
+            <div class="progress-bar-container">
+              <div class="progress-segment active">Dispatch</div>
+              <div class="progress-segment active">On the way</div>
+              <div class="progress-segment">Repairing</div>
+            </div>
+
+            <button class="btn btn-secondary btn-cancel" onclick="cancelRequest()">Cancel Request</button>
+          </div>
+        </section>
+
+
+        <!-- 7. PAYMENT & BILLING SCREEN -->
+        <section class="screen" id="screen-payment">
+          <div class="screen-logo-header">
+            <div class="logo-container-small" id="logo-payment"></div>
+          </div>
+          
+          <div class="payment-header">
+            <h2>Repair Completed!</h2>
+            <p>Your vehicle is ready. Please complete the payment.</p>
+          </div>
+
+          <div class="billing-card">
+            <div class="bill-row header-row">
+              <span>Service Details</span>
+              <span id="bill-service-type">Flat Tyre Repair</span>
+            </div>
+            
+            <div class="bill-row">
+              <span>Base Visit Fare</span>
+              <span>₹150.00</span>
+            </div>
+            <div class="bill-row">
+              <span>Labor / Material Charges</span>
+              <span>₹150.00</span>
+            </div>
+            <div class="bill-row">
+              <span>Taxes & GST (18%)</span>
+              <span>₹54.00</span>
+            </div>
+            <hr class="bill-divider">
+            <div class="bill-row total-row">
+              <span>Amount Due</span>
+              <span id="bill-total-amount">₹354.00</span>
+            </div>
+          </div>
+
+          <div class="payment-methods-header">Select Payment Method</div>
+          
+          <div class="payment-options">
+            <div class="payment-option active" onclick="selectPaymentMethod(this, 'UPI')">
+              <span class="pay-icon">📱</span>
+              <div class="pay-info">
+                <h4>Paytm / GooglePay / PhonePe</h4>
+                <p>Instant direct UPI settlement</p>
+              </div>
+              <span class="pay-radio active"></span>
+            </div>
+
+            <div class="payment-option" onclick="selectPaymentMethod(this, 'Cash')">
+              <span class="pay-icon">💵</span>
+              <div class="pay-info">
+                <h4>Cash to Mechanic</h4>
+                <p>Pay physically after review</p>
+              </div>
+              <span class="pay-radio"></span>
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-submit" id="btn-pay" onclick="processPayment()">Pay ₹354.00 &rarr;</button>
+        </section>
+
+        <!-- 8. RATING & FEEDBACK SCREEN -->
+        <section class="screen" id="screen-rating">
+          <div class="rating-box-header">
+            <div class="logo-container-small" id="logo-rating"></div>
+            <h2>How was your service?</h2>
+            <p>Rate your experience with <strong id="rating-mechanic-title">Deepak Singh</strong></p>
+          </div>
+
+          <!-- Star Selector -->
+          <div class="star-rating-container">
+            <span class="star" onclick="setRating(1)">★</span>
+            <span class="star" onclick="setRating(2)">★</span>
+            <span class="star" onclick="setRating(3)">★</span>
+            <span class="star" onclick="setRating(4)">★</span>
+            <span class="star" onclick="setRating(5)">★</span>
+          </div>
+
+          <!-- Tip Box -->
+          <div class="tips-box-container">
+            <label>Add a Tip for the Mechanic</label>
+            <div class="tips-row">
+              <button class="tip-btn" onclick="selectTip(this, 30)">₹30</button>
+              <button class="tip-btn active" onclick="selectTip(this, 50)">₹50</button>
+              <button class="tip-btn" onclick="selectTip(this, 100)">₹100</button>
+              <button class="tip-btn" onclick="selectTip(this, 'custom')">Custom</button>
+            </div>
+            <input type="number" id="custom-tip-input" class="hidden" placeholder="Enter tip amount" min="0" oninput="updateCustomTip(this.value)">
+          </div>
+
+          <!-- Feedback textarea -->
+          <div class="feedback-textarea-container">
+            <textarea id="feedback-text" placeholder="Write a note about the service... (Optional)"></textarea>
+          </div>
+
+          <button class="btn btn-primary btn-submit" onclick="submitRating()">Submit Review</button>
+        </section>
+
+        <!-- 9. RECEIPT & WARRANTY SCREEN -->
+        <section class="screen" id="screen-receipt">
+          <div class="success-banner">
+            <div class="success-icon">✓</div>
+            <h2>Thank You!</h2>
+            <p>Your breakdown is resolved.</p>
+          </div>
+
+          <!-- Warranty Certificate -->
+          <div class="warranty-card">
+            <div class="warranty-badge">30-DAY WARRANTY ACTIVE</div>
+            <h3>OttoMech Guarantee</h3>
+            <p>This repair is protected against issues for the next 30 days. Report directly in-app for free re-servicing.</p>
+            <div class="warranty-meta">
+              <div>
+                <strong>CERTIFICATE ID</strong>
+                <span id="warranty-id">OM-2026-9871</span>
+              </div>
+              <div>
+                <strong>VALID UNTIL</strong>
+                <span id="warranty-expiry">August 03, 2026</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detailed Receipt Summary -->
+          <div class="receipt-summary">
+            <h3>Receipt Summary</h3>
+            <div class="receipt-row">
+              <span>Date</span>
+              <span id="receipt-date">July 04, 2026</span>
+            </div>
+            <div class="receipt-row">
+              <span>Job ID</span>
+              <span id="receipt-job-id">#JOB-7643</span>
+            </div>
+            <div class="receipt-row">
+              <span>Mechanic</span>
+              <span id="receipt-mechanic-name">Deepak Singh</span>
+            </div>
+            <div class="receipt-row">
+              <span>Location</span>
+              <span id="receipt-location">Gomti Nagar, Lucknow</span>
+            </div>
+            <hr class="receipt-divider">
+            <div class="receipt-row total-row">
+              <span>Total Paid</span>
+              <span id="receipt-amount-paid">₹404.00</span>
+            </div>
+          </div>
+
+          <div class="receipt-actions">
+            <button class="btn btn-primary" onclick="simulatePDFDownload()">Download Receipt (PDF)</button>
+            <button class="btn btn-secondary" onclick="restartApp()">Request New Service</button>
+          </div>
+        </section>
+
+        <!-- 10. MECHANIC DASHBOARD SCREEN -->
+        <section class="screen" id="screen-mechanic-home">
+          <div class="screen-logo-header">
+            <div class="logo-container-small" id="logo-mechanic-home"></div>
+          </div>
+          
+          <div class="mechanic-profile-card">
+            <div class="avatar" id="mech-home-avatar">DS</div>
+            <div class="details" style="text-align: left;">
+              <h2 id="mech-home-name">Deepak Singh</h2>
+              <p class="rating-sub">⭐ 4.8 &bull; Professional Mechanic</p>
+              <div id="mech-home-garage-display" class="garage-tag hidden">
+                🏢 <span id="mech-home-garage-name">Gomti Auto Tech</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="status-card-container">
+            <div class="status-toggle-row">
+              <span class="status-text-label" id="mech-status-label">Online Status</span>
+              <label class="switch">
+                <input type="checkbox" id="mech-status-toggle" onchange="toggleMechanicOnlineStatus(this.checked)">
+                <span class="slider round"></span>
+              </label>
+            </div>
+            <div class="status-indicator-box offline" id="mech-status-indicator">
+              <div class="status-dot"></div>
+              <span id="mech-status-desc">You are Offline. Go online to start receiving roadside jobs.</span>
+            </div>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-box">
+              <span class="stat-num">12</span>
+              <span class="stat-label">Jobs Done</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-num">₹4,200</span>
+              <span class="stat-label">Earnings</span>
+            </div>
+            <div class="stat-box">
+              <span class="stat-num">98%</span>
+              <span class="stat-label">MRI Score</span>
+            </div>
+          </div>
+
+          <div style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 120px;" id="online-radar-container" class="hidden">
+            <div class="radar-container" style="transform: scale(0.7);">
+              <div class="radar-circle circle1"></div>
+              <div class="radar-circle circle2"></div>
+              <div class="radar-circle circle3"></div>
+              <div class="radar-logo" style="background: none; box-shadow: none;">📡</div>
+            </div>
+          </div>
+
+          <button class="btn btn-secondary" onclick="restartApp()" style="margin-top: auto;">Switch to Driver View</button>
+        </section>
+
+        <!-- 11. INCOMING REQUEST ALERT MODAL -->
+        <div class="booking-alert-overlay hidden" id="booking-alert-overlay">
+          <div class="booking-alert-card">
+            <div class="alert-header">
+              <div class="pulse-red-dot"></div>
+              <span>INCOMING ROAD BREAKDOWN</span>
+            </div>
+            
+            <h2 id="alert-customer-name">Aarav Sharma</h2>
+            <div class="alert-issue-badge" id="alert-issue">Flat tyre</div>
+            
+            <div class="alert-meta-rows">
+              <div class="meta-row">
+                <span>📍 Distance to Driver</span>
+                <strong id="alert-distance">1.4 km away</strong>
+              </div>
+              <div class="meta-row">
+                <span>💰 Predicted Repair Cost</span>
+                <strong id="alert-cost" style="color: var(--primary-violet);">₹354.00</strong>
+              </div>
+              <div class="meta-row">
+                <span>🏢 Customer Location</span>
+                <span id="alert-location" style="font-size: 12px; font-weight: 700; text-align: right; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Faizabad Road, near Flyover</span>
+              </div>
+            </div>
+
+            <div class="alert-actions">
+              <button class="btn btn-secondary" onclick="declineBooking()" style="padding: 12px;">Decline</button>
+              <button class="btn btn-primary" onclick="acceptBooking()" style="padding: 12px;">Accept &amp; Ride &rarr;</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 12. ACTIVE MECHANIC JOB NAVIGATION -->
+        <section class="screen" id="screen-mechanic-job">
+          <div class="map-wrapper">
+            <div id="mechanic-job-canvas" style="width: 100%; height: 100%;"></div>
+            <div class="eta-banner">
+              <span class="eta-time" id="job-eta">5 mins</span>
+              <span class="eta-status">Navigating to customer location</span>
+            </div>
+          </div>
+
+          <div class="bottom-sheet tracking-sheet" style="max-height: 350px;">
+            <div class="tracker-mechanic-card">
+              <div class="avatar" style="background-color: #059669;" id="job-driver-avatar">AS</div>
+              <div class="details">
+                <h3 id="job-driver-name">Aarav Sharma</h3>
+                <div class="rating-sub">📞 +91 98765 43210 &bull; <span id="job-issue-name">Flat Tyre</span></div>
+                <div class="vehicle-plate" style="color: #059669;" id="job-address-detail">Faizabad Road, Lucknow</div>
+              </div>
+            </div>
+
+            <div class="tracking-actions">
+              <button class="action-btn btn-call" onclick="triggerCallCustomer()" style="width: 100%; background-color: #ECFDF5; color: #059669; border-color: #A7F3D0;">
+                <svg viewBox="0 0 24 24" width="20" height="20">
+                  <path fill="currentColor" d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
+                </svg>
+                <span>Call Customer</span>
+              </button>
+            </div>
+
+            <div class="progress-bar-container">
+              <div class="progress-segment active" id="seg-nav">Drive</div>
+              <div class="progress-segment" id="seg-inspect">Inspect</div>
+              <div class="progress-segment" id="seg-repair">Repair</div>
+            </div>
+
+            <button class="btn btn-primary" id="btn-next-job-step" onclick="advanceJobStep()">I Have Arrived &rarr;</button>
+          </div>
+        </section>
+
+        <!-- 13. PAYMENT QR CODE BILLING SCREEN -->
+        <section class="screen" id="screen-mechanic-qr">
+          <div class="screen-logo-header">
+            <div class="logo-container-small" id="logo-mechanic-qr"></div>
+          </div>
+          
+          <div class="payment-header">
+            <h2>Scan &amp; Pay</h2>
+            <p>Show this UPI QR code to the customer to receive settlement.</p>
+          </div>
+
+          <div class="billing-card" style="margin-bottom: 20px;">
+            <div class="bill-row header-row">
+              <span>Customer</span>
+              <span id="qr-driver-name" style="background-color: #059669;">Aarav Sharma</span>
+            </div>
+            <div class="bill-row">
+              <span>Job Issue Type</span>
+              <span id="qr-issue-type">Flat Tyre Repair</span>
+            </div>
+            <hr class="bill-divider">
+            <div class="bill-row total-row">
+              <span>Amount Due</span>
+              <span id="qr-total-amount">₹354.00</span>
+            </div>
+          </div>
+
+          <!-- Dynamic SVG QR Code container -->
+          <div class="qr-code-wrapper" id="qr-code-container" style="display: flex; justify-content: center; align-items: center; padding: 20px; background-color: var(--gray-50); border: 2.5px solid var(--violet-100); border-radius: 20px; margin-bottom: 24px; box-shadow: var(--shadow-sm);">
+            <!-- Dynamic QR Code SVG will be injected here -->
+          </div>
+
+          <button class="btn btn-primary btn-submit" onclick="confirmMechanicPayment()">Confirm Payment Received &rarr;</button>
+        </section>
+
+      </main>
+
+      <!-- Mock Device Home Indicator Bar -->
+      <div class="home-indicator"></div>
+
+    </div>
+  </div>
+
+  <!-- Notification Banner -->
+  <div class="toast hidden" id="app-toast">Notification Message</div>
+
+  <script src="app.js"></script>
+</body>
+</html>
