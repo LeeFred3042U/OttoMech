@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — User | OttoMech{% endblock %}
-{% block nav_links %}{% endblock %}
+{% block logo_href %}/dashboard/user{% endblock %}
 
 {% block content %}
 <!-- ════════════════════════════════════════════════════════
@@ -61,7 +61,7 @@
         <!-- Damage report ticket -->
         <div class="report-ticket">
             <label class="upload-well" for="photo-upload">
-                <input type="file" id="photo-upload" accept="image/*" capture="environment" multiple>
+                <input type="file" id="photo-upload" accept="image/png, image/jpeg, image/webp, image/heic" multiple>
                 <span class="upload-thumb" id="upload-thumb">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
                 </span>
@@ -89,24 +89,17 @@
         </div>
 
         <!-- Location row -->
-        <div class="location-row" id="location-row">
-            <span class="location-dot"></span>
-            <span id="location-text">Locating you…</span>
+        <div class="location-row" id="location-row" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span class="location-dot"></span>
+                <span id="location-text">Locating you…</span>
+            </div>
+            <button type="button" class="btn btn-secondary" id="btn-get-location" style="padding: 0.25rem 0.75rem; font-size: 0.8rem; min-height: 0;">Get Location</button>
         </div>
 
         <!-- Manual coords fallback -->
         <div class="geo-warning" id="geo-warning" hidden>
-            <span>⚠️ Location access needed to find nearby mechanics</span>
-            <div class="field-row" style="margin-top: 0.5rem;">
-                <div class="field">
-                    <label for="manual-lat">Lat</label>
-                    <input type="number" id="manual-lat" step="any" placeholder="26.8550">
-                </div>
-                <div class="field">
-                    <label for="manual-lng">Lng</label>
-                    <input type="number" id="manual-lng" step="any" placeholder="80.9400">
-                </div>
-            </div>
+            <span>⚠️ Location access needed to find nearby mechanics. Please enable it and try again.</span>
         </div>
 
         <div class="cta-dock">
@@ -135,6 +128,12 @@
         <p class="no-mechanics-msg" id="no-mechanics-msg" hidden>
             No mechanics available nearby right now. We'll keep looking.
         </p>
+        
+        <div style="margin-top: 1.5rem;">
+            <button class="btn btn-outline" id="btn-call-directly" style="width: 100%;">
+                Call Mechanics Directly
+            </button>
+        </div>
     </div>
 </section>
 
@@ -338,7 +337,7 @@
 {% block scripts %}
 <script>
     // Auth guard: redirect to login if no session token
-    if (!sessionStorage.getItem('otto_token_handoff')) {
+    if (!localStorage.getItem('otto_token_handoff')) {
         window.location.href = '/login/user';
     }
 </script>

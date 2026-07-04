@@ -1,11 +1,11 @@
 # OttoMech — Stage 8 (Complete)
 
-Flask API for roadside mechanic dispatch in Lucknow. UUID-based registration, E.164 phones, PostGIS geo queries. Raw SQL against Neon PostgreSQL. Real-time updates with Socket.IO. Minimalist brutalist UI frontend included.
+Flask API for roadside mechanic dispatch in Lucknow. UUID-based registration, E.164 phones, in-memory geo matching. Raw SQL against Neon PostgreSQL. Real-time updates with Socket.IO. Minimalist brutalist UI frontend included.
 
 ## Prerequisites
 
 - Python 3.10+
-- Neon PostgreSQL with PostGIS and pgcrypto extensions
+- Neon PostgreSQL with pgcrypto extension
 
 ## Setup
 
@@ -84,7 +84,7 @@ curl -X POST http://localhost:5000/auth/verify-otp \
 
 `role` must be `user` or `mechanic`.
 
-### Nearby mechanics (PostGIS, max 3)
+### Nearby mechanics (in-memory matching, max 3)
 
 Returns only `is_available=true` mechanics, nearest first.
 
@@ -108,10 +108,26 @@ curl -X PATCH http://localhost:5000/jobs/<job-uuid>/accept \
   -d "{\"mechanic_id\":\"<mechanic-uuid>\"}"
 ```
 
-### Get job details
+### Complete job (mechanic)
 
 ```bash
-curl http://localhost:5000/jobs/<job-uuid>
+curl -X PATCH http://localhost:5000/jobs/<job-uuid>/complete \
+  -H "Authorization: Bearer <mechanic-token>" \
+  -H "Content-Type: application/json" \
+  -d "{\"cash_amount\": 500}"
+```
+
+### Get MRI Score & Earnings (mechanic)
+
+```bash
+curl http://localhost:5000/mechanics/<mechanic-uuid>/mri
+curl http://localhost:5000/mechanics/<mechanic-uuid>/earnings
+```
+
+### Generate Job Receipt (PDF)
+
+```bash
+curl -O -J http://localhost:5000/jobs/<job-uuid>/receipt
 ```
 
 ## Project structure
@@ -119,12 +135,15 @@ curl http://localhost:5000/jobs/<job-uuid>
 ```
 backend/
   app.py
-  db.py               # v2 schema, pgcrypto + postgis, auto-migration from v1
+  db.py               # v2 schema, pgcrypto, auto-migration from v1
   seed.py             # 20 garages (10 real + 10 dummy)
   routes/
-    auth.py           # register/user, register/mechanic, verify-otp
-    mechanic.py       # nearby (LIMIT 3)
-    job.py            # create, accept, get
+    auth.py           # register/user, register/mechanic, verify-otp, google auth
+    mechanic.py       # nearby, mri, earnings
+    job.py            # create, accept, complete, messages, rating
+    mri.py            # MRI scoring algorithm and PDF receipt generation
+    push.py           # VAPID web push notifications
+    socket_events.py  # Socket.IO real-time events (chat, GPS tracking)
     common.py         # shared error responses
   requirements.txt
   .env

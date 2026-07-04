@@ -130,9 +130,9 @@ var OttoLogin = (function () {
                 _els.stepEmail.hidden = true;
                 if (_els.stepSetupRequired) _els.stepSetupRequired.hidden = false;
             } else if (body.auth_method === 'direct') {
-                sessionStorage.setItem('otto_token_handoff', body.session_token);
-                sessionStorage.setItem('otto_id_handoff', body.id);
-                sessionStorage.setItem('otto_role_handoff', body.role);
+                localStorage.setItem('otto_token_handoff', body.session_token);
+                localStorage.setItem('otto_id_handoff', body.id);
+                localStorage.setItem('otto_role_handoff', body.role);
                 window.location.href = _dashboardUrl;
             } else {
                 // Check if email delivery failed
@@ -162,9 +162,9 @@ var OttoLogin = (function () {
         var payload = { email: _email, password: pwd };
 
         _postJSON('/auth/login/user/password', payload, _els.btnLoginPwd, _els.passwordError, function (body) {
-            sessionStorage.setItem('otto_token_handoff', body.session_token);
-            sessionStorage.setItem('otto_id_handoff', body.id);
-            sessionStorage.setItem('otto_role_handoff', body.role);
+            localStorage.setItem('otto_token_handoff', body.session_token);
+            localStorage.setItem('otto_id_handoff', body.id);
+            localStorage.setItem('otto_role_handoff', body.role);
             window.location.href = _dashboardUrl;
         });
     }
@@ -200,11 +200,10 @@ var OttoLogin = (function () {
         _postJSON(cfg.verifyEndpoint, payload, _els.btnVerify, _els.otpError, function (body) {
             _stopCountdown();
 
-            // One-time sessionStorage handoff for cross-page token transfer
-            // This is the ONLY acceptable sessionStorage use.
-            sessionStorage.setItem('otto_token_handoff', body.session_token);
-            sessionStorage.setItem('otto_id_handoff', body.id);
-            sessionStorage.setItem('otto_role_handoff', body.role);
+            // One-time localStorage handoff for cross-page token transfer
+            localStorage.setItem('otto_token_handoff', body.session_token);
+            localStorage.setItem('otto_id_handoff', body.id);
+            localStorage.setItem('otto_role_handoff', body.role);
 
             // Navigate to dashboard
             window.location.href = _dashboardUrl;

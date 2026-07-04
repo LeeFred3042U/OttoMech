@@ -24,6 +24,7 @@ from flask_socketio import SocketIO, emit, join_room, disconnect
 
 from db import get_db
 from routes.auth import validate_token
+from routes.mechanic import _mechanic_locations
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,9 @@ logger = logging.getLogger(__name__)
 # In-memory active jobs mapping — job_id → {driver_sid, mechanic_sid}
 # ---------------------------------------------------------------------------
 active_jobs: dict = {}
+
+# sid → mechanic_id (for cleanup on disconnect)
+_mechanic_socket_map: dict = {}
 
 # Guard: prevent re-registering handlers when create_app() is called multiple
 # times (e.g., each pytest fixture creates a new app but shares this module).
@@ -132,6 +136,8 @@ def register_socket_events(socketio: SocketIO) -> None:
             join_room(f"driver_{entity_id}")
         elif role == "mechanic":
             join_room(f"mechanic_{entity_id}")
+            # Track sid so we can clean up location on disconnect
+            _mechanic_socket_map[request.sid] = entity_id
 
         logger.debug("Socket connected sid=%s role=%s id=%s",
                      request.sid, role, entity_id)
@@ -146,6 +152,13 @@ def register_socket_events(socketio: SocketIO) -> None:
         the stale slot on reconnect.
         """
         sid = request.sid
+
+        # Clean up mechanic location on disconnect
+        mech_id = _mechanic_socket_map.pop(sid, None)
+        if mech_id:
+            _mechanic_locations.pop(mech_id, None)
+            logger.debug("Cleared location for mechanic %s on disconnect", mech_id)
+
         for jid, entry in active_jobs.items():
             if entry.get("driver_sid") == sid:
                 entry["driver_sid"] = None
@@ -153,6 +166,34 @@ def register_socket_events(socketio: SocketIO) -> None:
             if entry.get("mechanic_sid") == sid:
                 entry["mechanic_sid"] = None
                 logger.debug("mechanic_sid cleared for job %s (disconnect)", jid)
+
+    # -----------------------------------------------------------------------
+
+    @socketio.on("mechanic_online")
+    def on_mechanic_online(data):
+        """Mechanic broadcasts their current GPS location when they go online.
+
+        Expected payload: {lat, lng}
+        Stores the location in _mechanic_locations so fetch_nearby_mechanics
+        can do real Haversine-based proximity filtering.
+        """
+        sid = request.sid
+        mech_id = _mechanic_socket_map.get(sid)
+        if not mech_id:
+            logger.warning("mechanic_online from untracked sid=%s — ignored", sid)
+            return
+
+        data = data or {}
+        try:
+            lat = float(data["lat"])
+            lng = float(data["lng"])
+        except (KeyError, TypeError, ValueError):
+            emit("error", {"message": "mechanic_online requires lat and lng"})
+            return
+
+        _mechanic_locations[mech_id] = (lat, lng)
+        logger.debug("mechanic_online: stored location for %s: (%.4f, %.4f)", mech_id, lat, lng)
+        emit("location_ack", {"status": "ok", "mechanic_id": mech_id})
 
     # -----------------------------------------------------------------------
 
@@ -333,6 +374,7 @@ def register_socket_events(socketio: SocketIO) -> None:
             active_jobs[job_id] = {"driver_sid": None, "mechanic_sid": None}
 
         active_jobs[job_id][slot] = request.sid
+        join_room(f"job_{job_id}")
         logger.debug("rejoin_job: job %s %s → sid %s", job_id, slot, request.sid)
         emit("rejoined", {"job_id": job_id, "role": role})
 

@@ -47,25 +47,20 @@ var OttoDashboard = (function () {
         });
         _blueIcon = L.divIcon({
             className: 'marker-mechanic',
-            html: '<div style="width:16px;height:16px;background:#2E6BE6;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div>',
-            iconSize: [22, 22],
-            iconAnchor: [11, 11],
+            html: '<img src="/static/img/motorbike.svg" style="width:32px;height:32px;filter:drop-shadow(0px 2px 4px rgba(0,0,0,0.3));">',
+            iconSize: [32, 32],
+            iconAnchor: [16, 16],
         });
     }
 
     // ── Init ─────────────────────────────────────────────────
     function init() {
-        // Read token handoff from sessionStorage (one-time)
-        _token = sessionStorage.getItem('otto_token_handoff');
-        _userId = sessionStorage.getItem('otto_id_handoff');
-        _role = sessionStorage.getItem('otto_role_handoff');
+        // Read token handoff from localStorage
+        _token = localStorage.getItem('otto_token_handoff');
+        _userId = localStorage.getItem('otto_id_handoff');
+        _role = localStorage.getItem('otto_role_handoff');
 
-        // Delete immediately — never cached
-        sessionStorage.removeItem('otto_token_handoff');
-        sessionStorage.removeItem('otto_id_handoff');
-        sessionStorage.removeItem('otto_role_handoff');
-
-        if (!_token) {
+        if (!_token || _role !== 'user') {
             window.location.href = '/login/user';
             return;
         }
@@ -80,8 +75,68 @@ var OttoDashboard = (function () {
         _bindRating();
         _bindChat();
         _bindNavigation();
+        _bindGeolocation();
         _requestGeolocation();
         _connectSocket();
+        
+        _prefetchWorkshops();
+
+        // Check for active job on reload
+        var savedJobId = localStorage.getItem('otto_active_job_id');
+        if (savedJobId) {
+            _jobId = savedJobId;
+            _restoreActiveJob();
+        }
+    }
+
+    function _restoreActiveJob() {
+        fetch('/jobs/' + _jobId, {
+            headers: { 'Authorization': 'Bearer ' + _token }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.job) {
+                if (data.job.status === 'pending') {
+                    _showStep('searching');
+                    _initSearchMap();
+                    _startPolling();
+                } else if (data.job.status === 'accepted') {
+                    // Bug #7 fix: restore driver coords before map init to prevent fitBounds null crash
+                    _driverLat = parseFloat(data.job.lat);
+                    _driverLng = parseFloat(data.job.lng);
+                    _showStep('matched');
+                    document.getElementById('mechanic-name') && (document.getElementById('mechanic-name').textContent = data.job.mechanic_name || 'Mechanic');
+                    _loadChatMessages();
+                    setTimeout(function() {
+                        _showStep('tracking');
+                        _initTrackMap();
+                        setTimeout(function() { if (_trackMap) _trackMap.invalidateSize(); }, 150);
+                    }, 3000);
+                } else if (data.job.status === 'completed') {
+                    localStorage.removeItem('otto_active_job_id');
+                }
+            } else {
+                localStorage.removeItem('otto_active_job_id');
+                _jobId = null;
+            }
+        })
+        .catch(function(e) {});
+    }
+
+    function _prefetchWorkshops() {
+        if (!_token) return;
+        fetch('/mechanics/available?limit=5', {
+            headers: { 'Authorization': 'Bearer ' + _token }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.mechanics) {
+                localStorage.setItem('otto_cached_workshops', JSON.stringify(data.mechanics));
+            }
+        })
+        .catch(function() {
+            // Silently fail if offline
+        });
     }
 
     function _cacheDom() {
@@ -134,11 +189,8 @@ var OttoDashboard = (function () {
 
     function _updateFindButton() {
         var vehicleModel = document.getElementById('vehicle_model') ? document.getElementById('vehicle_model').value.trim() : '';
-        var hasLocation = _geoGranted || (
-            document.getElementById('manual-lat').value &&
-            document.getElementById('manual-lng').value
-        );
-        _els.btnFind.disabled = !(_selectedIssues.length > 0 && hasLocation && vehicleModel);
+        var hasLocation = _geoGranted;
+        _els.btnFind.disabled = !(_selectedIssues.length > 0 && hasLocation && vehicleModel && _photosBase64.length > 0);
     }
 
     // ── Photo Upload ─────────────────────────────────────────
@@ -155,41 +207,42 @@ var OttoDashboard = (function () {
             input.value = '';
             thumb.innerHTML = defaultThumbHTML;
             title.textContent = 'Add photo(s)';
-            hint.textContent = 'Camera or gallery · optional, max 30 MB';
+            hint.textContent = 'Camera or gallery · mandatory, max 30 MB';
             removeBtn.hidden = true;
+            _updateFindButton();
         }
 
         input.addEventListener('change', function () {
             var files = input.files;
-            if (!files || files.length === 0) { reset(); return; }
+            if (!files || files.length === 0) return;
             
             var totalSize = 0;
             for (var i = 0; i < files.length; i++) {
                 totalSize += files[i].size;
             }
             if (totalSize > 30 * 1024 * 1024) {
-                document.getElementById('err-photo').textContent = 'Total photos must be under 30 MB';
-                reset();
+                document.getElementById('err-photo').textContent = 'New photos must be under 30 MB';
                 return;
             }
             
             document.getElementById('err-photo').textContent = '';
-            _photosBase64 = [];
+            var loaded = 0;
             
-            Array.from(files).forEach(function(file, idx) {
+            Array.from(files).forEach(function(file) {
                 var reader = new FileReader();
                 reader.onload = function (e) {
-                    _photosBase64.push(e.target.result.split(',')[1]);
-                    if (idx === 0) {
-                        thumb.innerHTML = '<img src="' + e.target.result + '" alt="Damage photo">';
+                    _photosBase64.push(e.target.result);
+                    loaded++;
+                    if (loaded === files.length) {
+                        thumb.innerHTML = '<img src="' + e.target.result + '" style="width:100%; height:100%; object-fit:cover;">';
+                        title.textContent = _photosBase64.length + ' photo(s) added';
+                        hint.textContent = 'Tap × to remove all';
+                        removeBtn.hidden = false;
+                        _updateFindButton();
                     }
                 };
                 reader.readAsDataURL(file);
             });
-            
-            title.textContent = files.length + ' photo(s) attached';
-            hint.textContent = 'Total size: ' + (totalSize / (1024*1024)).toFixed(1) + ' MB';
-            removeBtn.hidden = false;
         });
 
         removeBtn.addEventListener('click', function (e) {
@@ -219,6 +272,15 @@ var OttoDashboard = (function () {
     }
 
     // ── Geolocation ──────────────────────────────────────────
+    function _bindGeolocation() {
+        var btnGetLoc = document.getElementById('btn-get-location');
+        if (btnGetLoc) {
+            btnGetLoc.addEventListener('click', function() {
+                _requestGeolocation();
+            });
+        }
+    }
+
     function _requestGeolocation() {
         if (!navigator.geolocation) {
             _showGeoWarning();
@@ -249,10 +311,8 @@ var OttoDashboard = (function () {
 
     function _showGeoWarning() {
         _els.geoWarning.hidden = false;
-        _setLocationText('Location needed — enter coordinates below', true);
-        // Listen for manual input changes
-        document.getElementById('manual-lat').addEventListener('input', _updateFindButton);
-        document.getElementById('manual-lng').addEventListener('input', _updateFindButton);
+        _setLocationText('Location access needed', true);
+        _updateFindButton();
     }
 
     // ── Find Mechanic ────────────────────────────────────────
@@ -264,9 +324,19 @@ var OttoDashboard = (function () {
         var btnTryAgain = document.getElementById('btn-try-again');
         if (btnTryAgain) {
             btnTryAgain.addEventListener('click', function () {
+                // Bug #5 fix: destroy stale search map so next job gets a fresh one
+                if (_searchMap) { _searchMap.remove(); _searchMap = null; }
                 _showStep('issue');
                 _els.btnFind.disabled = false;
                 _els.noMechanicsMsg.hidden = true;
+            });
+        }
+        
+        var btnCallDirectly = document.getElementById('btn-call-directly');
+        if (btnCallDirectly) {
+            btnCallDirectly.addEventListener('click', function () {
+                if (_pollTimer) clearInterval(_pollTimer);
+                _showFallback();
             });
         }
     }
@@ -309,6 +379,7 @@ var OttoDashboard = (function () {
             _setBtnLoading(_els.btnFind, false);
             if (r.status === 201) {
                 _jobId = r.body.job.job_id;
+                localStorage.setItem('otto_active_job_id', _jobId);
 
                 // Join job room via socket
                 if (_socket && _socket.connected) {
@@ -328,8 +399,11 @@ var OttoDashboard = (function () {
                 _startPolling();
             }
         })
-        .catch(function () {
+        .catch(function (error) {
             _setBtnLoading(_els.btnFind, false);
+            if (!navigator.onLine || error.name === 'TypeError') {
+                _showFallback();
+            }
         });
     }
 
@@ -369,28 +443,40 @@ var OttoDashboard = (function () {
         })
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            listContainer.innerHTML = '';
-            if (!data.mechanics || data.mechanics.length === 0) {
-                listContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted); font-size: 0.875rem;">No other mechanics found.</p>';
-                return;
-            }
-            
-            data.mechanics.forEach(function(mech) {
-                var rating = mech.rating ? mech.rating + ' ★' : 'New';
-                var html = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-100);">
-                        <div>
-                            <p style="font-weight: 500; font-size: 0.875rem;">${mech.first_name} ${mech.last_name} <span style="color: var(--warning); font-size: 0.75rem;">${rating}</span></p>
-                            <p style="color: var(--text-muted); font-size: 0.75rem;">${mech.workshop_name}</p>
-                        </div>
-                        <a href="tel:${mech.phone_number}" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Call</a>
-                    </div>
-                `;
-                listContainer.insertAdjacentHTML('beforeend', html);
-            });
+            _renderFallbackMechanics(listContainer, data.mechanics);
         })
         .catch(function() {
+            var cached = localStorage.getItem('otto_cached_workshops');
+            if (cached) {
+                try {
+                    var mechanics = JSON.parse(cached);
+                    _renderFallbackMechanics(listContainer, mechanics);
+                    return;
+                } catch(e) {}
+            }
             listContainer.innerHTML = '<p style="text-align: center; color: var(--error); font-size: 0.875rem;">Failed to load mechanics.</p>';
+        });
+    }
+
+    function _renderFallbackMechanics(listContainer, mechanics) {
+        listContainer.innerHTML = '';
+        if (!mechanics || mechanics.length === 0) {
+            listContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted); font-size: 0.875rem;">No other mechanics found.</p>';
+            return;
+        }
+        
+        mechanics.forEach(function(mech) {
+            var rating = mech.rating ? mech.rating + ' ★' : 'New';
+            var html = `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-100);">
+                    <div>
+                        <p style="font-weight: 500; font-size: 0.875rem;">${mech.first_name} ${mech.last_name} <span style="color: var(--warning); font-size: 0.75rem;">${rating}</span></p>
+                        <p style="color: var(--text-muted); font-size: 0.75rem;">${mech.workshop_name}</p>
+                    </div>
+                    <a href="tel:${mech.phone_number}" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Call</a>
+                </div>
+            `;
+            listContainer.insertAdjacentHTML('beforeend', html);
         });
     }
 
@@ -415,6 +501,15 @@ var OttoDashboard = (function () {
         if (panelAccount) panelAccount.hidden = step !== 'account';
         var panelActivity = document.getElementById('panel-activity');
         if (panelActivity) panelActivity.hidden = step !== 'activity';
+
+        // Bug #8 fix: invalidate Leaflet size after any visibility change
+        setTimeout(_invalidateMaps, 50);
+    }
+
+    // ── Invalidate all active Leaflet maps ─────────────────────────
+    function _invalidateMaps() {
+        if (_searchMap) _searchMap.invalidateSize();
+        if (_trackMap)  _trackMap.invalidateSize();
     }
 
     // ── Leaflet Maps ─────────────────────────────────────────
@@ -495,6 +590,8 @@ var OttoDashboard = (function () {
             setTimeout(function () {
                 _showStep('tracking');
                 _initTrackMap();
+                // Bug #1 fix: invalidateSize after the step is visible
+                setTimeout(function() { if (_trackMap) _trackMap.invalidateSize(); }, 150);
             }, 3000);
         });
 
@@ -509,11 +606,15 @@ var OttoDashboard = (function () {
                 } else {
                     _mechanicMarker.setLatLng([lat, lng]);
                 }
-                // Fit bounds to show both markers
-                _trackMap.fitBounds([
-                    [_driverLat, _driverLng],
-                    [lat, lng],
-                ], { padding: [40, 40] });
+                // Bug #7 fix: guard against null driver coords (race on page reload)
+                if (_driverLat != null && _driverLng != null) {
+                    _trackMap.fitBounds([
+                        [_driverLat, _driverLng],
+                        [lat, lng],
+                    ], { padding: [40, 40] });
+                } else {
+                    _trackMap.setView([lat, lng], 15);
+                }
             }
 
             // Update ETA: 30 km/h = 500 m/min
@@ -524,6 +625,10 @@ var OttoDashboard = (function () {
         _socket.on('job_completed', function (data) {
             _driverMarker = null;
             _mechanicMarker = null;
+            // Bug #2 fix: destroy map instances so a subsequent job gets a fresh map
+            if (_trackMap)  { _trackMap.remove();  _trackMap  = null; }
+            if (_searchMap) { _searchMap.remove(); _searchMap = null; }
+            localStorage.removeItem('otto_active_job_id');
 
             var cashAmount = data.cash_amount != null ? '₹' + parseFloat(data.cash_amount).toFixed(0) : '₹—';
             document.getElementById('complete-cash').textContent = cashAmount;
@@ -672,8 +777,9 @@ var OttoDashboard = (function () {
         div.style.borderRadius = 'var(--radius-sm)';
         div.style.maxWidth = '80%';
         div.style.alignSelf = isMe ? 'flex-end' : 'flex-start';
-        div.style.background = isMe ? 'var(--primary)' : 'var(--gray-100)';
-        div.style.color = isMe ? '#fff' : 'var(--text-main)';
+        div.style.background = isMe ? 'var(--brand-darkest)' : 'var(--bg-surface)';
+        div.style.color = isMe ? '#fff' : 'var(--text-primary)';
+        div.style.border = isMe ? 'none' : '1px solid var(--border-subtle)';
         
         div.textContent = data.message;
         container.appendChild(div);
@@ -687,6 +793,13 @@ var OttoDashboard = (function () {
         var loadEl = btn.querySelector('.btn-loading');
         if (textEl) textEl.hidden = loading;
         if (loadEl) loadEl.hidden = !loading;
+    }
+
+    // ── HTML escaping ────────────────────────────────────────
+    function _escapeHtml(str) {
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
 
     // ── Navigation & Tabs ────────────────────────────────────
@@ -722,17 +835,10 @@ var OttoDashboard = (function () {
         var btnLogout = document.getElementById('btn-logout');
         if (btnLogout) {
             btnLogout.addEventListener('click', function() {
-                _setBtnLoading(btnLogout, true);
-                fetch('/auth/logout', {
-                    method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + _token }
-                })
-                .then(function() {
-                    window.location.href = '/login/user';
-                })
-                .catch(function() {
-                    window.location.href = '/login/user';
-                });
+                localStorage.removeItem('otto_token_handoff');
+                localStorage.removeItem('otto_id_handoff');
+                localStorage.removeItem('otto_role_handoff');
+                window.location.href = '/login/user';
             });
         }
     }
@@ -796,22 +902,67 @@ var OttoDashboard = (function () {
                 var d = new Date(job.created_at).toLocaleDateString();
                 var issues = (job.issue_type || '').split(',').join(', ');
                 var status = job.status || 'unknown';
+                var statusColor = status === 'completed' ? 'var(--success, #22c55e)'
+                                : status === 'pending'   ? 'var(--brand-400, #f5a623)'
+                                : status === 'cancelled' ? 'var(--text-muted)'
+                                : 'var(--gray-400)';
                 
                 var card = document.createElement('div');
                 card.className = 'mechanic-info-card';
                 card.style.marginBottom = '1rem';
+                card.setAttribute('data-job-id', job.job_id);
                 card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <span style="font-weight: 500; text-transform: capitalize;">${issues}</span>
-                        <span style="font-size: 0.75rem; padding: 2px 6px; border-radius: 4px; background: var(--gray-100);">${status}</span>
+                        <span style="font-weight: 500; text-transform: capitalize;">${_escapeHtml(issues)}</span>
+                        <span style="font-size: 0.75rem; padding: 2px 8px; border-radius: 99px; background: var(--cream-100); color: ${statusColor}; font-weight: 600;">${status}</span>
                     </div>
                     <div style="font-size: 0.85rem; color: var(--text-muted);">
                         Date: ${d} <br>
-                        Vehicle: ${job.vehicle_model || '—'} <br>
+                        Vehicle: ${job.vehicle_model ? _escapeHtml(job.vehicle_model) : '—'} <br>
                         Amount: ${job.cash_amount != null ? '₹' + job.cash_amount : '—'}
                     </div>
+                    ${status === 'pending' ? `
+                    <button class="btn-cancel-job" data-job-id="${job.job_id}"
+                        style="margin-top: 10px; width: 100%; padding: 8px; border: none;
+                               background: transparent; color: var(--error, #ef4444);
+                               font-size: 0.825rem; font-weight: 500; cursor: pointer;
+                               border: 1px solid var(--error, #ef4444); border-radius: var(--radius-sm);">
+                        Cancel Request
+                    </button>` : ''}
                 `;
                 listEl.appendChild(card);
+            });
+
+            // Bind cancel buttons
+            listEl.querySelectorAll('.btn-cancel-job').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var jobId = this.getAttribute('data-job-id');
+                    var cardEl = listEl.querySelector('[data-job-id="' + jobId + '"]');
+                    btn.disabled = true;
+                    btn.textContent = 'Cancelling…';
+
+                    fetch('/jobs/' + jobId + '/cancel', {
+                        method: 'PATCH',
+                        headers: { 'Authorization': 'Bearer ' + _token }
+                    })
+                    .then(function(r) { return r.json(); })
+                    .then(function(res) {
+                        if (res.status === 'cancelled' && cardEl) {
+                            // Update status badge in place
+                            var badge = cardEl.querySelector('span:last-of-type');
+                            if (badge) { badge.textContent = 'cancelled'; badge.style.color = 'var(--text-muted)'; }
+                            btn.remove();
+                        } else {
+                            btn.disabled = false;
+                            btn.textContent = 'Cancel Request';
+                            alert(res.error || 'Could not cancel job.');
+                        }
+                    })
+                    .catch(function() {
+                        btn.disabled = false;
+                        btn.textContent = 'Cancel Request';
+                    });
+                });
             });
         })
         .catch(function() {

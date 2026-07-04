@@ -148,6 +148,59 @@ def _send_otp_email(email, otp_code):
         return False
 
 
+@auth_bp.route("/resend-otp", methods=["POST"])
+def resend_otp():
+    """Resend a fresh OTP to an email that has an active or recently expired OTP entry.
+
+    Accepts: { email, role }
+    Guards against abuse by requiring the email to exist in otp_store
+    (i.e. the user must have started registration/login recently).
+    """
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    role = (data.get("role") or "").strip()
+
+    if not email or not EMAIL_PATTERN.match(email):
+        return jsonify({"error": "A valid email is required"}), 400
+
+    if role not in ("user", "mechanic"):
+        return jsonify({"error": "role must be 'user' or 'mechanic'"}), 400
+
+    # Determine purpose from role
+    purpose = "login" if role in ("user", "mechanic") else "registration"
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                # Confirm the email has a previous OTP entry (anti-spam guard)
+                cur.execute(
+                    "SELECT 1 FROM otp_store WHERE email = %s;",
+                    (email,),
+                )
+                if not cur.fetchone():
+                    # Also check if the user/mechanic actually exists
+                    table = "users" if role == "user" else "mechanics"
+                    cur.execute(
+                        f"SELECT 1 FROM {table} WHERE email = %s;",
+                        (email,),
+                    )
+                    if not cur.fetchone():
+                        return jsonify({"error": "No account found for this email"}), 404
+
+                otp_code = _generate_otp()
+                expires_at = _store_otp(cur, email, otp_code, purpose)
+
+        email_sent = _send_otp_email(email, otp_code)
+        return jsonify({
+            "message": "OTP resent",
+            "expires_in_seconds": OTP_EXPIRY_SECONDS,
+            "email_delivery": "ok" if email_sent else "failed",
+        }), 200
+
+    except Exception as exc:
+        return db_error_response(exc)
+
+
 @auth_bp.route("/register/user", methods=["POST"])
 def register_user():
     data = request.get_json(silent=True) or {}

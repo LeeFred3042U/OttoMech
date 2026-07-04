@@ -3,7 +3,7 @@
 > **Your mechanic. One tap away.**
 >
 > OttoMech connects stranded motorists in Lucknow with the nearest verified mechanics in under 5 minutes — no app install, no payment gateway, fully real-time.
-> Features a fully responsive, brutalist minimalist UI with sharp corners and zero border radii.
+> Features a fully responsive, warm automotive design system built for mobile-first usage.
 
 ---
 
@@ -31,11 +31,11 @@
 
 A stranded user opens the browser (no install), registers with their email and phone, selects their breakdown type, and the system:
 
-1. Finds the **3 nearest available mechanics** via GPS using PostGIS spatial indexing.
-2. Broadcasts the job to all 3 simultaneously over **Socket.IO**.
+1. Finds the **3 nearest available mechanics** via GPS using in-memory Haversine distance calculations (no PostGIS required).
+2. Broadcasts the job to all 3 simultaneously over **Socket.IO** and sends a **Web Push Notification**.
 3. The **first mechanic to accept wins** — guaranteed by a single atomic SQL `UPDATE ... WHERE status='pending' RETURNING` (no race conditions).
-4. The user gets a **live Leaflet map** showing the mechanic's GPS location updating in real time.
-5. On arrival, the mechanic enters the **cash amount** and marks the job complete. The system records an MRI event.
+4. The user gets a **live Leaflet map** showing the mechanic's GPS location updating in real time, and can **chat** with them directly.
+5. On arrival, the mechanic enters the **cash amount** and marks the job complete. The system calculates a dynamic **Mechanic Reliability Index (MRI) score** and generates a **PDF receipt**.
 
 No payment gateway. Cash only. This is intentional.
 
@@ -48,7 +48,7 @@ No payment gateway. Cash only. This is intentional.
 │                         BROWSER (PWA)                            │
 │                                                                  │
 │   register_user.html  ─→  Flask REST API  ─→  Neon PostgreSQL   │
-│   register_mechanic.html                       (PostGIS)         │
+│   register_mechanic.html                                         │
 │                                                                  │
 │   Job Flow (user)                                                │
 │   POST /jobs/create ──────────────────────────────┐             │
@@ -73,7 +73,6 @@ No payment gateway. Cash only. This is intentional.
                               ┌──────────────────┐
                               │  Neon (Neon.tech)│
                               │  PostgreSQL      │
-                              │  + PostGIS       │
                               │                  │
                               │  users           │
                               │  mechanics       │
@@ -115,8 +114,8 @@ No payment gateway. Cash only. This is intentional.
 |---|---|---|
 | **Backend** | Python 3.13 + Flask 3.0 | Team expertise. Stable on Render free tier. |
 | **Real-time** | Flask-SocketIO 5.3 + eventlet | Bidirectional WebSocket for GPS tracking and job events. |
-| **Database** | Neon PostgreSQL + PostGIS | Free tier, `ST_DWithin` for geo queries, `gen_random_uuid()` for UUIDs. |
-| **DB Driver** | psycopg2 (raw SQL) | PostGIS geography types are cleaner in raw SQL than any ORM. |
+| **Database** | Neon PostgreSQL | Free tier, `gen_random_uuid()` for UUIDs. |
+| **DB Driver** | psycopg2 (raw SQL) | Clean raw SQL interaction |
 | **Map** | Leaflet.js + OpenStreetMap | Zero API key. Zero billing. Zero demo-day failure risk. |
 | **Frontend** | Jinja2 templates + Vanilla JS | No build step, no npm. Brutalist minimalist design. Works in any browser without install. |
 | **Auth** | Custom hex token (`secrets.token_hex`) | Simple, stateless enough for hackathon demo. |
@@ -148,13 +147,9 @@ Registered service providers.
 |---|---|---|
 | `mechanic_id` | UUID PK | |
 | `workshop_name`, `address`, `zone` | VARCHAR/TEXT | |
-| `lat`, `lng` | NUMERIC(9,6) | Stored separately for display |
-| `location` | GEOGRAPHY(POINT, 4326) | PostGIS column — `ST_DWithin` queries run on this |
 | `is_available` | BOOLEAN | Toggle. Only `TRUE` mechanics receive job broadcasts. |
 | `rating` | NUMERIC(3,2) | |
 | `mri_score` | NUMERIC(5,2) | Default 50.0. Updated by MRI event system (Stage 7). |
-
-**Index:** `GIST(location)` — enables fast `ST_DWithin` radius search.
 
 ### `otp_store`
 Ephemeral OTP storage, keyed by email.
@@ -176,7 +171,7 @@ The core dispatch record.
 | `mechanic_id` | UUID FK → mechanics | NULL until accepted |
 | `issue_type` | VARCHAR | `flat_tyre | battery | engine | overheating | other` |
 | `status` | VARCHAR | `pending → accepted → completed` |
-| `driver_location` | GEOGRAPHY | User's breakdown coordinates |
+| `lat`, `lng` | NUMERIC(9,6) | User's breakdown coordinates |
 | `cash_amount` | NUMERIC(8,2) | Entered by mechanic on completion |
 | `accepted_at`, `completed_at` | TIMESTAMPTZ | |
 
@@ -377,19 +372,16 @@ const socket = io({ auth: { token: sessionToken } });
 
 ## Core Logic: Dispatch & Concurrency
 
-### Geo Query (PostGIS)
+### Geo Query (In-Memory)
 
 ```sql
-SELECT mechanic_id, ST_Distance(location, ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography)
+SELECT mechanic_id, first_name, last_name, workshop_name, phone_number, zone, address, is_available, rating, mri_score
 FROM mechanics
 WHERE is_available = TRUE
-  AND location IS NOT NULL
-  AND ST_DWithin(location, ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography, %s)
-ORDER BY distance_m ASC
-LIMIT 3;
+ORDER BY rating DESC;
 ```
 
-Coordinates follow PostGIS convention: `ST_MakePoint(lng, lat)` — longitude first.
+Coordinates are matched completely in-memory on the server-side. The server tracks mechanic location via `mechanic_online` websocket ping events. Upon a job request, the Haversine formula calculates the distance between the driver's location and active mechanics, discarding mechanics outside the 50km radius and selecting the 3 closest.
 
 ### Atomic Accept (No Race Condition)
 
@@ -436,7 +428,7 @@ This is a hackathon project running on **free tier** infrastructure. The followi
 | **Session state** | In-memory `_token_store` dict | Lost on restart. `rejoin_job` event handles reconnection. |
 | **GPS tracking** | In-memory `active_jobs` dict | Lost on restart. Same reconnect recovery applies. |
 | **DB connections** | Fresh psycopg2 connection per request | Neon's own connection pooler handles this at the DB side. |
-| **Geo indexing** | PostGIS `GIST(location)` index | Supports thousands of mechanics. Scales well. |
+| **Geo indexing** | In-memory filtering | Avoids PostGIS dependency, scaling seamlessly with memory via python-side calculations. |
 | **Concurrency guard** | Single-row `UPDATE WHERE status='pending'` | Scales to any number of simultaneous acceptors. DB handles it. |
 | **OTP** | Email via SMTP | No rate limiting on Gmail App Password. 500 emails/day on free Gmail. Sufficient for demo. |
 
@@ -600,4 +592,6 @@ Business names, locations, and contact information are attributed to their respe
 
 If this project were to be developed beyond the hackathon prototype, the seed data would be replaced with business-owner onboarding, user submissions, or officially licensed data sources.
 
+icon:
+<a href="https://www.flaticon.com/free-icons/motorcycle" title="motorcycle icons">Motorcycle icons created by Freepik - Flaticon</a>
 ---

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — Mechanic | OttoMech{% endblock %}
-{% block nav_links %}{% endblock %}
+{% block logo_href %}/dashboard/mechanic{% endblock %}
 
 {% block content %}
 <!-- ════════════════════════════════════════════════════════
@@ -48,12 +48,27 @@
                     <span class="job-type" id="active-issue-type">—</span>
                     <span class="job-distance" id="active-distance" style="margin-left: 0.5rem; color: var(--text-muted);">—</span>
                 </div>
-                <a id="active-phone-link" class="icon-btn icon-btn-primary" aria-label="Call customer" style="text-decoration: none; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--primary); color: #fff;">
+                <a id="active-phone-link" class="icon-btn icon-btn-primary" aria-label="Call customer" style="text-decoration: none; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--brand-darkest); color: #fff;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
                 </a>
             </div>
 
-            <div class="chat-container" style="margin-top: 1rem; border-top: 1px solid var(--gray-200); padding-top: 1rem;">
+            <div class="customer-details" style="background: var(--bg-surface); padding: 1rem; border-radius: var(--radius-sm); margin-bottom: 1rem; font-size: 0.875rem;">
+                <div style="margin-bottom: 0.5rem;">
+                    <strong>Customer Phone:</strong> <span id="active-phone-text">—</span>
+                </div>
+                <div style="margin-bottom: 0.5rem;">
+                    <strong>Vehicle Model:</strong> <span id="active-vehicle-model">—</span>
+                </div>
+                <div>
+                    <strong>Photos:</strong>
+                    <div id="active-photos-container" style="display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+                        <span style="color: var(--text-muted);">No photos provided</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-container" style="margin-top: 1rem; border-top: 1px solid var(--border-subtle); padding-top: 1rem;">
                 <p style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">Messages</p>
                 <div id="chat-messages" style="height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem; font-size: 0.875rem;">
                 </div>
@@ -157,7 +172,7 @@
 {% block scripts %}
 <script>
     // Auth guard: redirect to login if no session token
-    if (!sessionStorage.getItem('otto_token_handoff')) {
+    if (!localStorage.getItem('otto_token_handoff')) {
         window.location.href = '/login/mechanic';
     }
 </script>

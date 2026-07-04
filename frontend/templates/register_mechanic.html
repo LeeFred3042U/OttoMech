@@ -1,11 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Register — Mechanic | OttoMech{% endblock %}
 
-{% block nav_links %}
-<a href="/">Home</a>
-<a href="/register/mechanic">Sign Up</a>
-<a href="/login/mechanic" class="nav-cta">Log In</a>
-{% endblock %}
+{% block logo_href %}/dashboard/mechanic{% endblock %}
 
 {% block content %}
 <!-- ── Step 1: Registration Form ─────────────────────────── -->
@@ -72,6 +68,20 @@
         </div>
 
 
+
+        <div class="auth-field" style="display:flex; gap: 1rem;">
+            <div style="flex:1;">
+                <label for="lat">Latitude (Optional)</label>
+                <input type="number" id="lat" name="lat" step="any" placeholder="26.8467">
+            </div>
+            <div style="flex:1;">
+                <label for="lng">Longitude (Optional)</label>
+                <input type="number" id="lng" name="lng" step="any" placeholder="80.9462">
+            </div>
+        </div>
+        <div class="geo-notice" style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+            If left blank, we will attempt to capture your location automatically.
+        </div>
 
         <div class="geo-notice" id="geo-notice" hidden></div>
         <div class="geo-status" id="geo-status" hidden></div>

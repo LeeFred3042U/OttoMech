@@ -53,6 +53,48 @@ var OttoRegister = (function () {
                 _handleOtp();
             });
         }
+
+        // Wire resend OTP link (mechanic registration OTP step)
+        var resendLink = document.getElementById('resend-link');
+        if (resendLink) {
+            resendLink.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (!_email) return;
+                // 30-second cooldown guard
+                if (resendLink.dataset.cooldown) return;
+
+                var role = resendLink.getAttribute('data-role') || _role;
+                resendLink.textContent = 'Sending…';
+                resendLink.style.opacity = '0.6';
+                resendLink.style.pointerEvents = 'none';
+
+                fetch('/auth/resend-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: _email, role: role }),
+                })
+                .then(function (res) { return res.json(); })
+                .then(function (body) {
+                    resendLink.textContent = 'Code resent!';
+                    resendLink.style.opacity = '1';
+                    if (body.expires_in_seconds) {
+                        _startCountdown(body.expires_in_seconds);
+                    }
+                    // Cooldown: disable re-click for 30 s
+                    resendLink.dataset.cooldown = '1';
+                    setTimeout(function () {
+                        resendLink.textContent = 'Resend code';
+                        resendLink.style.pointerEvents = '';
+                        delete resendLink.dataset.cooldown;
+                    }, 30000);
+                })
+                .catch(function () {
+                    resendLink.textContent = 'Failed — try again';
+                    resendLink.style.opacity = '1';
+                    resendLink.style.pointerEvents = '';
+                });
+            });
+        }
     }
 
     // ── Registration submit ──────────────────────────────────
@@ -98,6 +140,16 @@ var OttoRegister = (function () {
 
     // ── Geolocation capture ──────────────────────────────────
     function _captureGeolocationAndSubmit(cfg, data) {
+        var latInput = document.getElementById('lat');
+        var lngInput = document.getElementById('lng');
+
+        if (latInput && latInput.value && lngInput && lngInput.value) {
+            data.lat = parseFloat(latInput.value);
+            data.lng = parseFloat(lngInput.value);
+            _submitRegistration(cfg, data);
+            return;
+        }
+
         if (!navigator.geolocation) {
             // Geolocation not supported — proceed without
             data.lat = null;
@@ -137,9 +189,9 @@ var OttoRegister = (function () {
             if (_role === 'user') {
                 // User flow: instant session, redirect to dashboard
                 if (body.session_token) {
-                    sessionStorage.setItem('otto_token_handoff', body.session_token);
-                    sessionStorage.setItem('otto_id_handoff', body.id);
-                    sessionStorage.setItem('otto_role_handoff', body.role);
+                    localStorage.setItem('otto_token_handoff', body.session_token);
+                    localStorage.setItem('otto_id_handoff', body.id);
+                    localStorage.setItem('otto_role_handoff', body.role);
                     window.location.href = '/dashboard/user';
                 } else {
                     // Fallback: show success screen
@@ -183,6 +235,10 @@ var OttoRegister = (function () {
             if (_els.stepOtp) _els.stepOtp.hidden = true;
             _els.stepSuccess.hidden = false;
             _els.sessionToken.textContent = body.session_token;
+            
+            localStorage.setItem('otto_token_handoff', body.session_token);
+            localStorage.setItem('otto_id_handoff', body.id);
+            localStorage.setItem('otto_role_handoff', body.role);
         });
     }
 

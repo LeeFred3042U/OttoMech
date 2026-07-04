@@ -28,21 +28,28 @@ frontend/
 ├── templates/          # Jinja2 templates — rendered by Flask
 │   ├── base.html       # Shared layout (header, footer, CSS/JS links)
 │   ├── register_user.html
-│   └── register_mechanic.html
+│   ├── register_mechanic.html
+│   ├── login.html
+│   ├── dashboard_user.html
+│   └── dashboard_mechanic.html
 ├── static/
 │   ├── css/
-│   │   └── base.css    # Mobile-first, dark-graphite palette
-│   └── js/
-│       └── register.js # Shared registration + OTP logic
+│   │   └── base.css    # Mobile-first, warm automotive design system
+│   ├── js/
+│   │   ├── register.js # Registration + OTP logic
+│   │   ├── login.js    # Login logic
+│   │   ├── dashboard_user.js
+│   │   └── dashboard_mechanic.js
+│   └── img/            # SVGs and images (oLogo.svg, etc)
 ├── .gitignore
 └── README.md           # This file
 ```
 
 ## Design
 
-- **Palette**: Light theme (background `#FFFFFF` / `#F7F7F7`, text `#1C1C1E`, accent `#F5A623`)
-- **Aesthetic**: Brutalist Minimalist. Zero border radii across the entire app. Sharp 90-degree corners. High contrast focus and error states.
+- **Palette**: Warm automotive theme (Dark espresso `--brand-darkest`, Neutral tan `--brand-light`, Cream white `--brand-cream`).
+- **Aesthetic**: Premium, responsive, modern UI with smooth micro-interactions, subtle shadows, and a clean typography hierarchy.
 - **Font**: Inter (Google Fonts)
-- **Mobile-first**: max-width 420px container, touch-friendly inputs
-- **Assets**: Polished SVG line icons (stroke-linecap square, stroke-linejoin miter)
-- **No frameworks**: vanilla CSS + vanilla JS
+- **Mobile-first**: Built for smartphones since users will be stranded on the roadside.
+- **Assets**: Polished SVG icons (`oLogo.svg`, `motorbike.svg`).
+- **No frameworks**: Vanilla CSS + Vanilla JS, Socket.IO for real-time.

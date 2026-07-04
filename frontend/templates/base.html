@@ -13,11 +13,9 @@
 </head>
 <body>
     <header class="app-header">
-        <a href="/"><img src="{{ url_for('static', filename='img/oLogo.svg') }}" alt="OttoMech" class="logo-img"></a>
-        <nav class="app-nav">
-            {% block nav_links %}
-            {% endblock %}
-        </nav>
+        <a id="logo-link" href="{% block logo_href %}/{% endblock %}" class="logo-link">
+            <img src="{{ url_for('static', filename='img/oLogo.svg') }}" alt="OttoMech" class="logo-img">
+        </a>
     </header>
 
     <main class="container">
@@ -39,9 +37,9 @@
         .then(function(res) { return res.json(); })
         .then(function(data) {
             if (data.session_token) {
-                sessionStorage.setItem('otto_token_handoff', data.session_token);
-                sessionStorage.setItem('otto_id_handoff', data.id);
-                sessionStorage.setItem('otto_role_handoff', data.role);
+                localStorage.setItem('otto_token_handoff', data.session_token);
+                localStorage.setItem('otto_id_handoff', data.id);
+                localStorage.setItem('otto_role_handoff', data.role);
                 window.location.href = dashboardUrl;
             } else {
                 alert(data.error || "Authentication failed");
@@ -49,6 +47,16 @@
         })
         .catch(function(e) {
             alert("Network error during Google Auth");
+        });
+    }
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('/static/sw.js').then(function(registration) {
+                console.log('ServiceWorker registration successful with scope: ', registration.scope);
+            }, function(err) {
+                console.log('ServiceWorker registration failed: ', err);
+            });
         });
     }
     </script>

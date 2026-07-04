@@ -198,7 +198,6 @@ def init_db(force_reset=False):
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute("CREATE EXTENSION IF NOT EXISTS pgcrypto;")
-            cur.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
 
             if force_reset or not _schema_is_v2(cur):
                 cur.execute(DROP_TABLES_SQL)

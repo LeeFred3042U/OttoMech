@@ -11,6 +11,7 @@ import base64
 import io
 import logging
 from datetime import datetime, timezone
+from flask import current_app
 
 logger = logging.getLogger(__name__)
 
@@ -120,6 +121,8 @@ def generate_receipt_pdf(job_data, mechanic_data):
             SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
         )
         from reportlab.lib import colors
+        from svglib.svglib import svg2rlg
+        import os
 
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=A4,
@@ -166,8 +169,20 @@ def generate_receipt_pdf(job_data, mechanic_data):
 
         elements = []
 
-        # Header
-        elements.append(Paragraph("OttoMech", title_style))
+        # Header: Logo
+        svg_path = os.path.join(current_app.root_path, '..', 'frontend', 'static', 'img', 'oLogo.svg')
+        try:
+            logo = svg2rlg(svg_path)
+            # Scale down the logo since it might be big (120x44)
+            if logo:
+                logo.hAlign = 'CENTER'
+                logo.scale(0.5, 0.5)
+                elements.append(logo)
+                elements.append(Spacer(1, 10))
+        except Exception as e:
+            # Fallback if svg fails
+            elements.append(Paragraph("OttoMech", title_style))
+            
         elements.append(Paragraph("Job Receipt", subtitle_style))
 
         # Job details table

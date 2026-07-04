@@ -15,8 +15,11 @@ var OttoMechDashboard = (function () {
     var _socket = null;
     var _isOnline = false;
     var _activeJobId = null;
+    var _currentStep = 'status';
     var _gpsInterval = null;
     var _activeMap = null;
+    var _idleMap = null;
+    var _miniMaps = [];
     var _driverMarker = null;
     var _mechanicMarker = null;
     var _driverLat = null;
@@ -46,15 +49,11 @@ var OttoMechDashboard = (function () {
 
     // ── Init ─────────────────────────────────────────────────
     function init() {
-        _token = sessionStorage.getItem('otto_token_handoff');
-        _mechanicId = sessionStorage.getItem('otto_id_handoff');
-        _role = sessionStorage.getItem('otto_role_handoff');
+        _token = localStorage.getItem('otto_token_handoff');
+        _mechanicId = localStorage.getItem('otto_id_handoff');
+        _role = localStorage.getItem('otto_role_handoff');
 
-        sessionStorage.removeItem('otto_token_handoff');
-        sessionStorage.removeItem('otto_id_handoff');
-        sessionStorage.removeItem('otto_role_handoff');
-
-        if (!_token) {
+        if (!_token || _role !== 'mechanic') {
             window.location.href = '/login/mechanic';
             return;
         }
@@ -68,6 +67,12 @@ var OttoMechDashboard = (function () {
         _bindNavigation();
         _connectSocket();
 
+        var savedJobId = localStorage.getItem('otto_active_job_id');
+        if (savedJobId) {
+            _activeJobId = savedJobId;
+            _restoreActiveJob();
+        }
+
         // Clean up GPS on page unload
         window.addEventListener('beforeunload', function () {
             _stopGps();
@@ -75,6 +80,84 @@ var OttoMechDashboard = (function () {
 
         // Push Notifications
         _initPushNotifications();
+    }
+
+    function _restoreActiveJob() {
+        fetch('/jobs/' + _activeJobId, {
+            headers: { 'Authorization': 'Bearer ' + _token }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.job && data.job.status === 'accepted') {
+                _driverLat = data.job.lat;
+                _driverLng = data.job.lng;
+                
+                var issue = data.job.issue_type || '';
+                document.getElementById('active-issue-type').textContent = issue.replace(/_/g, ' ');
+                
+                var activePhoneLink = document.getElementById('active-phone-link');
+                var activePhoneText = document.getElementById('active-phone-text');
+                if (data.job.driver_phone) {
+                    if (activePhoneLink) {
+                        activePhoneLink.href = 'tel:' + data.job.driver_phone;
+                        activePhoneLink.title = 'Call ' + data.job.driver_phone;
+                    }
+                    if (activePhoneText) {
+                        activePhoneText.textContent = data.job.driver_phone;
+                    }
+                }
+
+                var activeModel = document.getElementById('active-vehicle-model');
+                if (activeModel) {
+                    activeModel.textContent = data.job.vehicle_model || 'Not provided';
+                }
+
+                var photosContainer = document.getElementById('active-photos-container');
+                if (photosContainer) {
+                    if (data.job.photos && data.job.photos.length > 0) {
+                        photosContainer.innerHTML = '';
+                        var photos = [];
+                        try {
+                            photos = JSON.parse(data.job.photos);
+                        } catch (e) {}
+                        
+                        if (photos.length > 0) {
+                            photos.forEach(function(base64) {
+                                var img = document.createElement('img');
+                                img.src = base64;
+                                img.style.width = '60px';
+                                img.style.height = '60px';
+                                img.style.objectFit = 'cover';
+                                img.style.borderRadius = 'var(--radius-sm)';
+                                img.style.cursor = 'pointer';
+                                img.onclick = function() {
+                                    var w = window.open();
+                                    w.document.write('<img src="' + base64 + '" style="max-width:100%;">');
+                                };
+                                photosContainer.appendChild(img);
+                            });
+                        } else {
+                            photosContainer.innerHTML = '<span style="color: var(--text-muted);">No photos provided</span>';
+                        }
+                    } else {
+                        photosContainer.innerHTML = '<span style="color: var(--text-muted);">No photos provided</span>';
+                    }
+                }
+
+                _loadChatMessages();
+                _showPanel('active');
+                _initActiveMap();
+                _startGps();
+
+                if (_socket && _socket.connected) {
+                    _socket.emit('join_job', { job_id: _activeJobId, role: 'mechanic' });
+                }
+            } else {
+                localStorage.removeItem('otto_active_job_id');
+                _activeJobId = null;
+            }
+        })
+        .catch(function(e) {});
     }
 
     function _initPushNotifications() {
@@ -171,6 +254,9 @@ var OttoMechDashboard = (function () {
                     } else {
                         _els.panelIncoming.hidden = false;
                         _els.waitingMsg.hidden = false;
+                        if (_idleMap) {
+                            setTimeout(function() { _idleMap.invalidateSize(); }, 100);
+                        }
                         if (!_activeJobId) {
                             _startIdleGps();
                         }
@@ -187,6 +273,14 @@ var OttoMechDashboard = (function () {
                 function(pos) {
                     payload.lat = pos.coords.latitude;
                     payload.lng = pos.coords.longitude;
+                    // Register location with backend for proximity matching
+                    if (_socket && _socket.connected) {
+                        _socket.emit('mechanic_online', {
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude,
+                        });
+                    }
+                    _initIdleMap(pos.coords.latitude, pos.coords.longitude);
                     sendUpdate();
                 },
                 function() {
@@ -217,6 +311,22 @@ var OttoMechDashboard = (function () {
 
         _socket.on('connect', function () {
             _els.reconnectBanner.hidden = true;
+            // Re-broadcast location if mechanic is already marked online
+            if (_isOnline && navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function (pos) {
+                        _socket.emit('mechanic_online', {
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude,
+                        });
+                    },
+                    function () { /* location unavailable on reconnect — silently skip */ },
+                    { timeout: 5000, enableHighAccuracy: true }
+                );
+            }
+            if (_activeJobId) {
+                _socket.emit('join_job', { job_id: _activeJobId, role: 'mechanic' });
+            }
         });
 
         _socket.on('disconnect', function () {
@@ -233,8 +343,13 @@ var OttoMechDashboard = (function () {
 
         _socket.on('job_completed', function () {
             _stopGps();
+            localStorage.removeItem('otto_active_job_id');
             _activeJobId = null;
             _showPanel('done');
+        });
+
+        _socket.on('chat_message', function (data) {
+            _appendChatMessage(data);
         });
     }
 
@@ -274,6 +389,7 @@ var OttoMechDashboard = (function () {
                     attribution: '&copy; OSM',
                 }).addTo(miniMap);
                 L.marker([data.driver_lat, data.driver_lng], { icon: _orangeIcon }).addTo(miniMap);
+                _miniMaps.push(miniMap);
             }
         }, 100);
 
@@ -302,6 +418,7 @@ var OttoMechDashboard = (function () {
         .then(function (result) {
             if (result.status === 200) {
                 _activeJobId = jobId;
+                localStorage.setItem('otto_active_job_id', _activeJobId);
                 _driverLat = driverLat;
                 _driverLng = driverLng;
 
@@ -316,9 +433,52 @@ var OttoMechDashboard = (function () {
                     (issue || 'unknown').replace(/_/g, ' ');
 
                 var activePhoneLink = document.getElementById('active-phone-link');
-                if (result.body.job && result.body.job.driver_phone && activePhoneLink) {
-                    activePhoneLink.href = 'tel:' + result.body.job.driver_phone;
-                    activePhoneLink.title = 'Call ' + result.body.job.driver_phone;
+                var activePhoneText = document.getElementById('active-phone-text');
+                if (result.body.job && result.body.job.driver_phone) {
+                    if (activePhoneLink) {
+                        activePhoneLink.href = 'tel:' + result.body.job.driver_phone;
+                        activePhoneLink.title = 'Call ' + result.body.job.driver_phone;
+                    }
+                    if (activePhoneText) {
+                        activePhoneText.textContent = result.body.job.driver_phone;
+                    }
+                }
+
+                var activeModel = document.getElementById('active-vehicle-model');
+                if (activeModel && result.body.job) {
+                    activeModel.textContent = result.body.job.vehicle_model || 'Not provided';
+                }
+
+                var photosContainer = document.getElementById('active-photos-container');
+                if (photosContainer && result.body.job) {
+                    if (result.body.job.photos && result.body.job.photos.length > 0) {
+                        photosContainer.innerHTML = '';
+                        var photos = [];
+                        try {
+                            photos = JSON.parse(result.body.job.photos);
+                        } catch (e) {}
+                        
+                        if (photos.length > 0) {
+                            photos.forEach(function(base64) {
+                                var img = document.createElement('img');
+                                img.src = base64;
+                                img.style.width = '60px';
+                                img.style.height = '60px';
+                                img.style.objectFit = 'cover';
+                                img.style.borderRadius = 'var(--radius-sm)';
+                                img.style.cursor = 'pointer';
+                                img.onclick = function() {
+                                    var w = window.open();
+                                    w.document.write('<img src="' + base64 + '" style="max-width:100%;">');
+                                };
+                                photosContainer.appendChild(img);
+                            });
+                        } else {
+                            photosContainer.innerHTML = '<span style="color: var(--text-muted);">No photos provided</span>';
+                        }
+                    } else {
+                        photosContainer.innerHTML = '<span style="color: var(--text-muted);">No photos provided</span>';
+                    }
                 }
 
                 _loadChatMessages();
@@ -341,6 +501,8 @@ var OttoMechDashboard = (function () {
             _activeMap.remove();
             _activeMap = null;
         }
+        _driverMarker = null;
+        _mechanicMarker = null;
         var container = document.getElementById('map-active');
         var lat = _driverLat || 26.855;
         var lng = _driverLng || 80.94;
@@ -349,7 +511,30 @@ var OttoMechDashboard = (function () {
             attribution: '&copy; OpenStreetMap contributors',
         }).addTo(_activeMap);
         _driverMarker = L.marker([lat, lng], { icon: _orangeIcon }).addTo(_activeMap);
-        _mechanicMarker = null;
+        setTimeout(function() { if (_activeMap) _activeMap.invalidateSize(); }, 100);
+    }
+
+    // ── Idle Map (while online, waiting for jobs) ────────────────
+    function _initIdleMap(lat, lng) {
+        var container = document.getElementById('map-idle');
+        if (!container) return;
+        if (_idleMap) {
+            _idleMap.setView([lat, lng], 14);
+            setTimeout(function() { _idleMap.invalidateSize(); }, 100);
+            return;
+        }
+        _idleMap = L.map(container, { zoomControl: false }).setView([lat, lng], 14);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+        }).addTo(_idleMap);
+        L.marker([lat, lng], { icon: _blueIcon }).addTo(_idleMap);
+        setTimeout(function() { if (_idleMap) _idleMap.invalidateSize(); }, 100);
+    }
+
+    // ── Invalidate all active Leaflet maps ───────────────────────
+    function _invalidateMaps() {
+        if (_activeMap) _activeMap.invalidateSize();
+        if (_idleMap)   _idleMap.invalidateSize();
     }
 
     // ── Idle GPS Emit Loop (No Job) ──────────────────────────
@@ -361,6 +546,9 @@ var OttoMechDashboard = (function () {
             
             navigator.geolocation.getCurrentPosition(
                 function(pos) {
+                    var lat = pos.coords.latitude;
+                    var lng = pos.coords.longitude;
+                    
                     // Just update DB in the background
                     fetch('/mechanics/' + _mechanicId + '/availability', {
                         method: 'PATCH',
@@ -370,8 +558,8 @@ var OttoMechDashboard = (function () {
                         },
                         body: JSON.stringify({ 
                             is_available: true,
-                            lat: pos.coords.latitude,
-                            lng: pos.coords.longitude 
+                            lat: lat,
+                            lng: lng 
                         })
                     }).catch(function(){});
                 },
@@ -464,6 +652,9 @@ var OttoMechDashboard = (function () {
     // ── Back Online ──────────────────────────────────────────
     function _bindBackOnline() {
         document.getElementById('btn-back-online').addEventListener('click', function () {
+            // Bug #6 fix: destroy orphaned mini-map Leaflet instances before clearing DOM
+            _miniMaps.forEach(function(m) { try { m.remove(); } catch(e) {} });
+            _miniMaps = [];
             _showPanel('status');
             _els.panelIncoming.hidden = !_isOnline;
             // Clear old job cards
@@ -474,6 +665,7 @@ var OttoMechDashboard = (function () {
 
     // ── Panel Management ─────────────────────────────────────
     function _showPanel(panel) {
+        _currentStep = panel;
         _els.panelStatus.hidden = panel !== 'status';
         _els.panelIncoming.hidden = panel !== 'status' && panel !== 'incoming';
         _els.panelActive.hidden = panel !== 'active';
@@ -482,7 +674,13 @@ var OttoMechDashboard = (function () {
         // Show incoming alongside status when online
         if (panel === 'status' && _isOnline) {
             _els.panelIncoming.hidden = false;
+            if (_idleMap) {
+                setTimeout(function() { _idleMap.invalidateSize(); }, 100);
+            }
         }
+
+        // Bug #8 fix: invalidate all Leaflet maps after visibility changes
+        setTimeout(_invalidateMaps, 50);
     }
 
     // ── Toast ────────────────────────────────────────────────
@@ -536,6 +734,7 @@ var OttoMechDashboard = (function () {
                 if (panelDone) panelDone.hidden = true;
                 if (panelAccount) panelAccount.hidden = true;
                 if (panelEarnings) panelEarnings.hidden = false;
+                _fetchEarnings();
             } else {
                 if (panelAccount) panelAccount.hidden = true;
                 if (panelEarnings) panelEarnings.hidden = true;
@@ -550,21 +749,10 @@ var OttoMechDashboard = (function () {
         var btnLogout = document.getElementById('btn-logout');
         if (btnLogout) {
             btnLogout.addEventListener('click', function() {
-                var loadEl = btnLogout.querySelector('.btn-loading');
-                var textEl = btnLogout.querySelector('.btn-text');
-                if (textEl) textEl.hidden = true;
-                if (loadEl) loadEl.hidden = false;
-                
-                fetch('/auth/logout', {
-                    method: 'POST',
-                    headers: { 'Authorization': 'Bearer ' + _token }
-                })
-                .then(function() {
-                    window.location.href = '/login/mechanic';
-                })
-                .catch(function() {
-                    window.location.href = '/login/mechanic';
-                });
+                localStorage.removeItem('otto_token_handoff');
+                localStorage.removeItem('otto_id_handoff');
+                localStorage.removeItem('otto_role_handoff');
+                window.location.href = '/login/mechanic';
             });
         }
     }
@@ -609,8 +797,51 @@ var OttoMechDashboard = (function () {
                 }
             }
         })
-        .catch(function() {
-            document.getElementById('acct-name').textContent = 'Error loading profile';
+        .catch(function(err) {
+            document.getElementById('acct-status').textContent = 'Error loading account';
+        });
+    }
+
+    // ── Earnings Logic ───────────────────────────────────────
+    function _fetchEarnings() {
+        var panelEarnings = document.getElementById('panel-earnings');
+        if (!panelEarnings) return;
+
+        panelEarnings.innerHTML = '<p>Loading earnings...</p>';
+
+        fetch('/mechanics/' + _mechanicId + '/earnings', {
+            headers: { 'Authorization': 'Bearer ' + _token }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.error) {
+                panelEarnings.innerHTML = '<p class="error-msg">Failed to load earnings: ' + data.error + '</p>';
+                return;
+            }
+            
+            var html = '<div class="card"><h1>Earnings Dashboard</h1>';
+            html += '<h2>Total Earnings: ₹' + (data.total_earnings || 0).toFixed(2) + '</h2>';
+            
+            if (!data.jobs || data.jobs.length === 0) {
+                html += '<p class="empty-state">No completed jobs yet.</p>';
+            } else {
+                html += '<div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">';
+                data.jobs.forEach(function(job) {
+                    var d = new Date(job.completed_at);
+                    html += '<div style="padding: 1rem; border: 1px solid var(--gray-200); border-radius: var(--radius-md); display: flex; justify-content: space-between;">';
+                    html += '<div><strong>' + (job.issue_type || 'Job').replace(/_/g, ' ') + '</strong><br>';
+                    html += '<small class="gray-text">' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString() + '</small></div>';
+                    html += '<div style="font-weight: 600;">₹' + job.cash_amount.toFixed(2) + '</div>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            }
+            
+            html += '</div>';
+            panelEarnings.innerHTML = html;
+        })
+        .catch(function(err) {
+            panelEarnings.innerHTML = '<p class="error-msg">Failed to load earnings.</p>';
         });
     }
 
@@ -666,8 +897,9 @@ var OttoMechDashboard = (function () {
         div.style.borderRadius = 'var(--radius-sm)';
         div.style.maxWidth = '80%';
         div.style.alignSelf = isMe ? 'flex-end' : 'flex-start';
-        div.style.background = isMe ? 'var(--primary)' : 'var(--gray-100)';
-        div.style.color = isMe ? '#fff' : 'var(--text-main)';
+        div.style.background = isMe ? 'var(--brand-darkest)' : 'var(--bg-surface)';
+        div.style.color = isMe ? '#fff' : 'var(--text-primary)';
+        div.style.border = isMe ? 'none' : '1px solid var(--border-subtle)';
         
         div.textContent = data.message;
         container.appendChild(div);

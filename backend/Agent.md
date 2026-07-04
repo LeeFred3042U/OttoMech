@@ -49,8 +49,8 @@ OttoMech is a PWA (no app install) that connects stranded users in Lucknow with 
 | Layer | Choice | Reason — do not suggest alternatives |
 |---|---|---|
 | Backend | Python + Flask | Team knows it. Stable on free Render. |
-| Database | Neon PostgreSQL + PostGIS | Free tier, PostGIS for geo queries, no ORM complexity |
-| DB driver | psycopg2 (raw SQL) | PostGIS types are cleaner in raw SQL than ORM |
+| Database | Neon PostgreSQL | Free tier, no ORM complexity |
+| DB driver | psycopg2 (raw SQL) | Cleaner in raw SQL than ORM |
 | Primary keys | **UUID** (`gen_random_uuid()`, requires `pgcrypto` extension) | Matches required registration schema |
 | Real-time | Socket.IO (Stage 4) | Bidirectional — needed for both user map AND in-app chat |
 | Frontend | Vanilla JS PWA (single HTML file) | No build step, no npm, works on any browser, no install |
@@ -76,7 +76,6 @@ OttoMech is a PWA (no app install) that connects stranded users in Lucknow with 
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- for gen_random_uuid()
-CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- ═══════════════ USERS ═══════════════
 CREATE TABLE IF NOT EXISTS users (
@@ -116,9 +115,6 @@ CREATE TABLE IF NOT EXISTS mechanics (
     workshop_name    VARCHAR(150) NOT NULL,
     address          TEXT,
     zone             VARCHAR(50),                       -- Gomti Nagar, Lalbagh, etc.
-    lat              NUMERIC(9,6),
-    lng              NUMERIC(9,6),
-    location         GEOGRAPHY(POINT, 4326),
     is_available     BOOLEAN DEFAULT FALSE,
     rating           NUMERIC(3,2) DEFAULT 0.00,
     review_count     INT DEFAULT 0,
@@ -135,7 +131,7 @@ CREATE TABLE IF NOT EXISTS mechanics (
     two_fa_method    VARCHAR(20)
 );
 
-CREATE INDEX IF NOT EXISTS idx_mechanics_location ON mechanics USING GIST(location);
+
 
 -- ═══════════════ OTP (shared by users + mechanics, keyed on email — Stage 5 change) ═══════════════
 CREATE TABLE IF NOT EXISTS otp_store (
@@ -154,7 +150,6 @@ CREATE TABLE IF NOT EXISTS jobs (
     status           VARCHAR(30) DEFAULT 'pending',-- pending|accepted|in_progress|completed|cancelled
     lat              NUMERIC(9,6),
     lng              NUMERIC(9,6),
-    driver_location  GEOGRAPHY(POINT, 4326),
     photo_base64     TEXT,
     cash_amount      NUMERIC(8,2),                 -- entered by mechanic at completion, nullable
     created_at       TIMESTAMPTZ DEFAULT NOW(),
@@ -249,15 +244,26 @@ Server → Client (room-targeted):
   location_update {job_id, lat, lng, distance_m}
 ```
 
+### Geo Query (In-Memory)
+
+```sql
+SELECT mechanic_id, first_name, ...
+FROM mechanics
+WHERE is_available = TRUE
+ORDER BY rating DESC;
+```
+
+Coordinates are managed strictly in-memory. When a user requests a mechanic, the server iterates through connected mechanics' `mechanic_online` ping locations and uses the Haversine formula to compute distance, filtering out mechanics beyond the radius.
+
 ---
 
 ## Prior Decisions (carried forward, unchanged)
 
-- **Raw SQL over SQLAlchemy** — PostGIS types are cleaner in raw psycopg2.
+- **Raw SQL over SQLAlchemy** — types are cleaner in raw psycopg2.
 - **No connection pooling** — fresh connection per request; Neon's own pooler handles this.
 - **No JWT** — hex token in `_token_store` dict, acceptable for demo.
 - **No ORM migrations** — schema changes via `init_db()` with `IF NOT EXISTS`.
-- **`ST_MakePoint(lng, lat)`** — PostGIS convention, do not swap.
+- **No reliance on DB spatial types** — managed via in-memory Haversine calculations.
 - **`LIMIT 3` on /mechanics/nearby** — SOS broadcasts to exactly 3.
 - **Free-tier only** — every choice must survive Render free + Neon free.
 - **`is_available`** is the demo toggle — no separate `demo_mode` flag.

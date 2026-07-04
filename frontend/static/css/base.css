@@ -112,12 +112,11 @@ img, svg { display: block; }
    LAYOUT
    ═══════════════════════════════════════════════════════════ */
 
-/* ── App Header ───────────────────────────────────────────── */
+/* ── App Header (logo-only bar) ───────────────────────────── */
 .app-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.25rem;
+  padding: 0.75rem 1.25rem;
   background: var(--bg-page);
   border-bottom: 1px solid var(--border);
   position: sticky;
@@ -125,41 +124,16 @@ img, svg { display: block; }
   z-index: 100;
 }
 
-.logo-img {
-  height: 36px;
-  width: auto;
-}
-
-/* ── App Nav (inside header) ──────────────────────────────── */
-.app-nav {
-  display: flex;
+.logo-link {
+  display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-}
-
-.app-nav a {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--text-secondary);
   text-decoration: none;
-  padding: 0.4rem 0.75rem;
-  border-radius: var(--radius-sm);
-  transition: color var(--transition), background var(--transition);
 }
 
-.app-nav a:hover {
-  color: var(--text-primary);
-  background: var(--cream-100);
-}
-
-.app-nav a.nav-cta {
-  background: var(--brand-900);
-  color: var(--text-inverse);
-  padding: 0.4rem 1rem;
-}
-
-.app-nav a.nav-cta:hover {
-  background: var(--accent-dark);
+.logo-img {
+  height: 32px;
+  width: auto;
+  display: block;
 }
 
 /* ── Main Container ───────────────────────────────────────── */
