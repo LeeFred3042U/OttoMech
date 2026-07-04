@@ -4,17 +4,22 @@
 {% block nav_links %}
 <a href="/">Home</a>
 <a href="/register/mechanic">Sign Up</a>
-<a href="/login/mechanic">Log In</a>
+<a href="/login/mechanic" class="nav-cta">Log In</a>
 {% endblock %}
 
 {% block content %}
+<!-- ── Step 1: Registration Form ─────────────────────────── -->
 <section class="auth-container" id="step-register">
     <div class="auth-header">
-        <h1>Mechanic Registration</h1>
-        <p>Join OttoMech to receive roadside job requests</p>
+        <p class="auth-eyebrow">Mechanic · Step 1 of 2</p>
+        <h1>Join OttoMech</h1>
+        <p>Start accepting roadside jobs near you</p>
     </div>
 
     <form id="register-form" novalidate>
+        <!-- Personal -->
+        <p class="form-section-label">Personal</p>
+
         <div class="field-row">
             <div class="auth-field">
                 <label for="first_name">First Name <span class="required">*</span></label>
@@ -40,6 +45,9 @@
             <span class="field-error" id="err-gender"></span>
         </div>
 
+        <!-- Contact -->
+        <p class="form-section-label">Contact</p>
+
         <div class="auth-field">
             <label for="email">Email <span class="required">*</span></label>
             <input type="email" id="email" name="email" placeholder="raju@example.com" required autocomplete="email">
@@ -47,17 +55,20 @@
         </div>
 
         <div class="auth-field">
-            <label for="phone_number">Phone Number <span class="required">*</span></label>
+            <label for="phone_number">Phone <span class="required">*</span></label>
             <input type="tel" id="phone_number" name="phone_number" placeholder="+919988776655" required autocomplete="tel">
             <span class="field-error" id="err-phone_number"></span>
         </div>
 
         <div class="auth-field">
-            <label for="country">Country Code <span class="required">*</span></label>
+            <label for="country">Country <span class="required">*</span></label>
             <input type="text" id="country" name="country" placeholder="IN" maxlength="2" required autocomplete="country">
-            <span class="hint">2-letter code (IN, US, GB…). Server normalizes to uppercase.</span>
+            <span class="hint">2-letter code (IN, US, GB…)</span>
             <span class="field-error" id="err-country"></span>
         </div>
+
+        <!-- Professional -->
+        <p class="form-section-label">Professional</p>
 
         <div class="auth-field">
             <label for="workshop_name">Workshop Name <span class="required">*</span></label>
@@ -83,31 +94,36 @@
         <div class="form-error" id="register-error" role="alert"></div>
 
         <button type="submit" class="btn-black" id="btn-register">
-            <span class="btn-text">Send OTP</span>
+            <span class="btn-text">Send code</span>
             <span class="btn-loading" hidden>Sending…</span>
         </button>
     </form>
+
+    <div class="auth-footer">
+        Already registered? <a href="/login/mechanic">Log in</a>
+    </div>
 </section>
 
+<!-- ── Step 2: OTP ───────────────────────────────────────── -->
 <section class="auth-container" id="step-otp" hidden>
     <div class="auth-header">
+        <p class="auth-eyebrow">Mechanic · Step 2 of 2</p>
         <h1>Check your email</h1>
         <p>We sent a 6-digit code to <strong id="display-email">your email</strong></p>
     </div>
-    
-    <p class="otp-hint" id="otp-hint-terminal" style="display:none; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">Check server terminal if email didn't arrive.</p>
+
+    <p class="otp-hint" id="otp-hint-terminal" style="display:none;">Check server terminal if email didn't arrive.</p>
 
     <form id="otp-form" novalidate>
-        <!-- The JS needs #otp, so we keep a hidden input -->
         <input type="hidden" id="otp" name="otp">
-        
+
         <div class="otp-inputs" id="otp-inputs">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
         </div>
         <span class="field-error" id="err-otp"></span>
 
@@ -115,27 +131,27 @@
         <div class="form-error" id="otp-error" role="alert"></div>
 
         <button type="submit" class="btn-black" id="btn-verify" disabled>
-            <span class="btn-text">Verify</span>
+            <span class="btn-text">Verify code</span>
             <span class="btn-loading" hidden>Verifying…</span>
         </button>
-        
-        <div style="text-align: center; margin-top: 1rem;">
-            <a href="#" id="resend-link" style="color: var(--text-muted); font-size: 0.8rem; text-decoration: none; pointer-events: none;">Resend code</a>
+
+        <div class="auth-footer">
+            <a href="#" id="resend-link" style="color: var(--text-muted); pointer-events: none; text-decoration: none;">Resend code</a>
         </div>
     </form>
 </section>
 
-<section class="card success-card" id="step-success" hidden>
-    <div class="success-icon">✅</div>
-    <h1>Registration Complete</h1>
-    <p class="subtitle">Your email is verified. You'll receive job requests once your account is activated.</p>
-    <div class="token-display">
-        <label>Session Token</label>
-        <code id="session-token"></code>
-    </div>
-    <p class="hint">Mechanic dashboard will be available in the next stage.</p>
-    <div style="margin-top: 20px; text-align: center;">
-        <a href="/" class="btn btn-secondary" style="display: inline-block; padding: 10px 20px; background-color: #6c757d; color: white; text-decoration: none; border-radius: 4px;">Back to Home</a>
+<!-- ── Step 3: Success ───────────────────────────────────── -->
+<section class="auth-container" id="step-success" hidden>
+    <div class="success-card">
+        <div class="success-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <h1>You're all set.</h1>
+        <p class="subtitle">Your email is verified. You'll receive job requests once your account is activated.</p>
+        <!-- Hidden: consumed by register.js to store session token -->
+        <code id="session-token" style="display:none;"></code>
+        <a href="/" class="btn-black" style="margin-top: 1.5rem; text-decoration: none;">Go home</a>
     </div>
 </section>
 {% endblock %}
@@ -143,12 +159,10 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/register.js') }}"></script>
 <script>
-    
-    // JS to handle 6 OTP boxes and sync to hidden input
     const otpBoxes = document.querySelectorAll('.otp-box');
     const hiddenOtp = document.getElementById('otp');
     const btnVerify = document.getElementById('btn-verify');
-    
+
     function updateHiddenOtp() {
         let val = '';
         otpBoxes.forEach(box => val += box.value);
@@ -159,9 +173,7 @@
     otpBoxes.forEach((box, i) => {
         box.addEventListener('input', (e) => {
             box.value = box.value.replace(/[^0-9]/g, '');
-            if (box.value && i < otpBoxes.length - 1) {
-                otpBoxes[i+1].focus();
-            }
+            if (box.value && i < otpBoxes.length - 1) otpBoxes[i+1].focus();
             updateHiddenOtp();
         });
         box.addEventListener('keydown', (e) => {
@@ -177,7 +189,7 @@
         setTimeout(() => {
             const email = document.getElementById('email').value;
             const display = document.getElementById('display-email');
-            if(display && email) display.innerText = email;
+            if (display && email) display.innerText = email;
         }, 100);
     });
 

@@ -369,7 +369,8 @@ var OttoDashboard = (function () {
             var phoneLink = document.getElementById('mech-phone-link');
             if (data.phone) {
                 phoneLink.href = 'tel:' + data.phone;
-                phoneLink.textContent = '📞 ' + data.phone;
+                phoneLink.title = 'Call ' + data.phone;
+                phoneLink.setAttribute('aria-label', 'Call ' + data.phone);
             }
 
             // Also populate tracking card

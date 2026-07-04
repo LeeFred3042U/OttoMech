@@ -1,5 +1,7 @@
 # OttoMech — Frontend
 
+The design is available in a [figma file](https://www.figma.com/design/VsXn08nXUlAnj1NjBTJ04f/ottoMech?node-id=0-1&t=emlB98EKardNkMaI-1) 
+
 There is **no build step**. No npm, no webpack, no vite.
 
 ## How to run

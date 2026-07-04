@@ -4,34 +4,46 @@
 {% block nav_links %}
 <a href="/">Home</a>
 <a href="/register/mechanic">Sign Up</a>
-<a href="/login/mechanic">Log In</a>
+<a href="/login/mechanic" class="nav-cta">Log In</a>
 {% endblock %}
 
 {% block content %}
-<!-- ── Panel A: Availability Toggle ──────────────────────── -->
+<!-- ════════════════════════════════════════════════════════
+     Panel A — Availability Toggle
+     ════════════════════════════════════════════════════════ -->
 <section id="panel-status" class="step-container">
     <div class="card">
         <h1>Mechanic Dashboard</h1>
+        <p class="subtitle">Toggle availability to start receiving jobs</p>
+
         <div class="toggle-pill" id="availability-toggle">
             <div class="toggle-switch"></div>
             <span class="toggle-label">Go Online</span>
             <span class="toggle-status" id="availability-status">Offline</span>
         </div>
-        <p class="empty-state" id="waiting-msg" hidden>You are online — waiting for jobs.</p>
+
+        <p class="empty-state" id="waiting-msg" hidden>
+            You're online — waiting for job requests.
+        </p>
     </div>
 </section>
 
-<!-- ── Panel B: Incoming Jobs ─────────────────────────────── -->
+<!-- ════════════════════════════════════════════════════════
+     Panel B — Incoming Jobs
+     ════════════════════════════════════════════════════════ -->
 <section id="panel-incoming" class="step-container" hidden>
     <div class="card">
         <h1>Incoming Jobs</h1>
+        <p class="subtitle">New requests near you</p>
         <div id="job-cards-container">
             <p class="empty-state" id="no-jobs-msg">Waiting for job requests…</p>
         </div>
     </div>
 </section>
 
-<!-- ── Panel C: Active Job ───────────────────────────────── -->
+<!-- ════════════════════════════════════════════════════════
+     Panel C — Active Job
+     ════════════════════════════════════════════════════════ -->
 <section id="panel-active" class="step-container" hidden>
     <div class="card">
         <h1>Active Job</h1>
@@ -43,10 +55,10 @@
             <div class="map-container" id="map-active"></div>
             <div class="gps-indicator">
                 <div class="gps-dot"></div>
-                <span>Sending your location to user</span>
+                <span>Sending your location to customer</span>
             </div>
             <div class="cash-input-row">
-                <span style="font-weight: 600; white-space: nowrap;">₹</span>
+                <span>₹</span>
                 <input type="number" id="cash-amount" placeholder="Enter amount" min="0" step="1">
                 <button class="btn-complete" id="btn-complete" type="button">Complete</button>
             </div>
@@ -55,20 +67,24 @@
     </div>
 </section>
 
-<!-- ── Job Complete Message ───────────────────────────────── -->
+<!-- ════════════════════════════════════════════════════════
+     Panel D — Job Done
+     ════════════════════════════════════════════════════════ -->
 <section id="panel-done" class="step-container" hidden>
-    <div class="card success-card">
-        <div class="success-icon" style="color: var(--text-primary);"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><polyline points="20 6 9 17 4 12"></polyline></svg></div>
+    <div class="success-card">
+        <div class="success-icon">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
         <h1>Job Complete</h1>
-        <p class="subtitle">The user has been notified. You'll receive new jobs automatically.</p>
-        <button class="btn btn-primary" id="btn-back-online" type="button" style="margin-top: 1rem;">Back to Dashboard</button>
+        <p class="subtitle">The customer has been notified. You'll receive new jobs automatically.</p>
+        <button class="btn btn-primary" id="btn-back-online" type="button" style="margin-top: 1.5rem;">Back to Dashboard</button>
     </div>
 </section>
 
-<!-- ── Toast Message ─────────────────────────────────────── -->
+<!-- Toast -->
 <div class="toast-message" id="toast" hidden></div>
 
-<!-- ── Reconnecting Banner ───────────────────────────────── -->
+<!-- Reconnecting Banner -->
 <div class="reconnecting-banner" id="reconnect-banner" hidden>
     Live updates paused — reconnecting…
 </div>

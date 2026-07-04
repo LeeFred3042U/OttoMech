@@ -1,16 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Login — User | OttoMech{% endblock %}
+{% block title %}Log In — User | OttoMech{% endblock %}
 
 {% block content %}
+<!-- ── Step 1: Email ──────────────────────────────────────── -->
 <section class="auth-container" id="step-email">
     <div class="auth-header">
+        <p class="auth-eyebrow">Customer</p>
         <h1>Welcome back</h1>
         <p>Enter your email to continue</p>
     </div>
 
     <form id="login-form" novalidate>
         <div class="auth-field">
-            <input type="email" id="email" name="email" placeholder="your@email.com" required autocomplete="email">
+            <label for="email">Email address</label>
+            <input type="email" id="email" name="email" placeholder="you@example.com" required autocomplete="email">
             <span class="field-error" id="err-email"></span>
         </div>
 
@@ -23,30 +26,30 @@
     </form>
 
     <div class="auth-footer">
-        New to OttoMech? <a href="/register/user">Sign up</a>
+        New here? <a href="/register/user">Create an account</a>
     </div>
 </section>
 
+<!-- ── Step 2: OTP ───────────────────────────────────────── -->
 <section class="auth-container" id="step-otp" hidden>
     <div class="auth-header">
+        <p class="auth-eyebrow">Verification</p>
         <h1>Check your email</h1>
         <p>We sent a 6-digit code to <strong id="display-email">your email</strong></p>
     </div>
-    
-    <!-- Shown if needed based on response, logic can show this -->
-    <p class="otp-hint" id="otp-hint-terminal" style="display:none; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">Check server terminal if email didn't arrive.</p>
+
+    <p class="otp-hint" id="otp-hint-terminal" style="display:none;">Check server terminal if email didn't arrive.</p>
 
     <form id="otp-form" novalidate>
-        <!-- The JS needs #otp, so we keep a hidden input -->
         <input type="hidden" id="otp" name="otp">
-        
+
         <div class="otp-inputs" id="otp-inputs">
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
-            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required>
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
+            <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" required placeholder="·">
         </div>
         <span class="field-error" id="err-otp"></span>
 
@@ -54,12 +57,12 @@
         <div class="form-error" id="otp-error" role="alert"></div>
 
         <button type="submit" class="btn-black" id="btn-verify" disabled>
-            <span class="btn-text">Verify</span>
+            <span class="btn-text">Verify code</span>
             <span class="btn-loading" hidden>Verifying…</span>
         </button>
-        
-        <div style="text-align: center; margin-top: 1rem;">
-            <a href="#" id="resend-link" style="color: var(--text-muted); font-size: 0.8rem; text-decoration: none; pointer-events: none;">Resend code</a>
+
+        <div class="auth-footer">
+            <a href="#" id="resend-link" style="color: var(--text-muted); pointer-events: none; text-decoration: none;">Resend code</a>
         </div>
     </form>
 </section>
@@ -68,11 +71,10 @@
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/login.js') }}"></script>
 <script>
-    // JS to handle 6 OTP boxes and sync to hidden input
     const otpBoxes = document.querySelectorAll('.otp-box');
     const hiddenOtp = document.getElementById('otp');
     const btnVerify = document.getElementById('btn-verify');
-    
+
     function updateHiddenOtp() {
         let val = '';
         otpBoxes.forEach(box => val += box.value);
@@ -83,9 +85,7 @@
     otpBoxes.forEach((box, i) => {
         box.addEventListener('input', (e) => {
             box.value = box.value.replace(/[^0-9]/g, '');
-            if (box.value && i < otpBoxes.length - 1) {
-                otpBoxes[i+1].focus();
-            }
+            if (box.value && i < otpBoxes.length - 1) otpBoxes[i+1].focus();
             updateHiddenOtp();
         });
         box.addEventListener('keydown', (e) => {
@@ -101,9 +101,7 @@
         setTimeout(() => {
             const email = document.getElementById('email').value;
             const display = document.getElementById('display-email');
-            if(display && email) display.innerText = email;
-            // if server returned email_delivery = failed, login.js might not expose it easily, 
-            // but we'll show the hint just in case if there's an error block
+            if (display && email) display.innerText = email;
         }, 100);
     });
 
