@@ -20,6 +20,9 @@ from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from functools import wraps
 
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
 from flask import Blueprint, g, jsonify, request
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -286,67 +289,33 @@ def register_mechanic():
 
                 otp_code = _generate_otp()
 
-                if lat is not None and lng is not None:
-                    cur.execute(
-                        """
-                        INSERT INTO mechanics (
-                            first_name, last_name, display_name, gender, email,
-                            phone_number, country, language, workshop_name, address,
-                            zone, lat, lng, location, is_available
-                        )
-                        VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                            ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,
-                            FALSE
-                        )
-                        RETURNING mechanic_id;
-                        """,
-                        (
-                            first_name,
-                            last_name,
-                            display_name,
-                            gender,
-                            email,
-                            phone_number,
-                            country,
-                            language,
-                            workshop_name,
-                            address,
-                            zone,
-                            lat,
-                            lng,
-                            lng,
-                            lat,
-                        ),
+                cur.execute(
+                    """
+                    INSERT INTO mechanics (
+                        first_name, last_name, display_name, gender, email,
+                        phone_number, country, language, workshop_name, address,
+                        zone, is_available
                     )
-                else:
-                    cur.execute(
-                        """
-                        INSERT INTO mechanics (
-                            first_name, last_name, display_name, gender, email,
-                            phone_number, country, language, workshop_name, address,
-                            zone, is_available
-                        )
-                        VALUES (
-                            %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                            FALSE
-                        )
-                        RETURNING mechanic_id;
-                        """,
-                        (
-                            first_name,
-                            last_name,
-                            display_name,
-                            gender,
-                            email,
-                            phone_number,
-                            country,
-                            language,
-                            workshop_name,
-                            address,
-                            zone,
-                        ),
+                    VALUES (
+                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                        FALSE
                     )
+                    RETURNING mechanic_id;
+                    """,
+                    (
+                        first_name,
+                        last_name,
+                        display_name,
+                        gender,
+                        email,
+                        phone_number,
+                        country,
+                        language,
+                        workshop_name,
+                        address,
+                        zone,
+                    ),
+                )
                 mechanic_id = cur.fetchone()[0]
                 _store_otp(cur, email, otp_code, "registration")
     except Exception:
@@ -461,6 +430,82 @@ def verify_otp():
         "role": role,
         "id": str(entity_id),
     })
+
+
+@auth_bp.route("/google", methods=["POST"])
+def google_auth():
+    """Real Google Auth endpoint."""
+    data = request.get_json(silent=True) or {}
+    credential = data.get("credential")
+    role = data.get("role") or "user"
+    
+    if not credential:
+        return jsonify({"error": "Missing Google credential"}), 400
+
+    google_client_id = os.getenv("GOOGLE_CLIENT_ID")
+    if not google_client_id:
+        return jsonify({"error": "Google Client ID is not configured on the server."}), 500
+
+    try:
+        idinfo = id_token.verify_oauth2_token(credential, google_requests.Request(), google_client_id)
+        email = idinfo.get("email").strip().lower()
+        first_name = idinfo.get("given_name", "Google User")
+        last_name = idinfo.get("family_name", "")
+    except ValueError:
+        return jsonify({"error": "Invalid Google token"}), 401
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                if role == "user":
+                    cur.execute("SELECT user_id FROM users WHERE email = %s;", (email,))
+                    row = cur.fetchone()
+                    if row:
+                        entity_id = row[0]
+                    else:
+                        cur.execute(
+                            """
+                            INSERT INTO users (
+                                first_name, last_name, display_name, email, phone_number, country, status, email_verified
+                            ) VALUES (
+                                %s, %s, %s, %s, %s, 'IN', 'ACTIVE', TRUE
+                            ) RETURNING user_id;
+                            """,
+                            (first_name, last_name, f"{first_name} {last_name}".strip(), email, f"gauth_{secrets.token_hex(4)}")
+                        )
+                        entity_id = cur.fetchone()[0]
+                else:
+                    cur.execute("SELECT mechanic_id FROM mechanics WHERE email = %s;", (email,))
+                    row = cur.fetchone()
+                    if row:
+                        entity_id = row[0]
+                    else:
+                        cur.execute(
+                            """
+                            INSERT INTO mechanics (
+                                first_name, last_name, display_name, email, phone_number, workshop_name, country, email_verified, is_available
+                            ) VALUES (
+                                %s, %s, %s, %s, %s, %s, 'IN', TRUE, FALSE
+                            ) RETURNING mechanic_id;
+                            """,
+                            (first_name, last_name, f"{first_name} {last_name}".strip(), email, f"gauth_{secrets.token_hex(4)}", f"{first_name}'s Workshop")
+                        )
+                        entity_id = cur.fetchone()[0]
+    except Exception as e:
+        print(f"Google Auth DB Error: {e}")
+        return db_error_response()
+
+    session_token = secrets.token_hex(32)
+    _token_store[session_token] = {"role": role, "id": str(entity_id)}
+
+    return jsonify({
+        "message": "Google Login successful",
+        "session_token": session_token,
+        "role": role,
+        "id": str(entity_id),
+        "auth_method": "direct"
+    })
+
 
 
 @auth_bp.route("/login/user", methods=["POST"])
@@ -586,6 +631,40 @@ def request_setup_link():
         return db_error_response()
     
     print(f"[EMAIL SIMULATION] Password setup link for {email}: /set-password?token={token}")
+    
+    return jsonify({"message": "Setup link generated. Check terminal for details."}), 200
+
+
+@auth_bp.route("/login/mechanic/request-setup-link", methods=["POST"])
+def request_setup_link_mechanic():
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+    
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                # Assuming mechanics have similar status logic or just use email
+                cur.execute("SELECT mechanic_id FROM mechanics WHERE email = %s;", (email,))
+                row = cur.fetchone()
+                if not row:
+                    return jsonify({"message": "If an account exists, an email has been sent."}), 200
+                
+                mechanic_id = row[0]
+                token = secrets.token_urlsafe(32)
+                
+                cur.execute("UPDATE password_setup_tokens SET used_at = now() WHERE mechanic_id = %s AND used_at IS NULL;", (mechanic_id,))
+                
+                cur.execute(
+                    "INSERT INTO password_setup_tokens (token, mechanic_id, expires_at) VALUES (%s, %s, now() + interval '1 hour');",
+                    (token, mechanic_id)
+                )
+    except Exception:
+        return db_error_response()
+    
+    print(f"[EMAIL SIMULATION] Mechanic Password setup link for {email}: /set-password?token={token}")
     
     return jsonify({"message": "Setup link generated. Check terminal for details."}), 200
 

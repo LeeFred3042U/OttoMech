@@ -1,16 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — User | OttoMech{% endblock %}
+{% block nav_links %}{% endblock %}
 
 {% block content %}
 <!-- ════════════════════════════════════════════════════════
      Step 1 — Issue Selector (map backdrop + bottom sheet)
      ════════════════════════════════════════════════════════ -->
 <section id="step-issue" class="step-container app-shell">
-    <!-- Warm cream map backdrop with location pin -->
-    <div class="map-backdrop">
-        <div class="pin-pulse"></div>
-        <div class="pin"></div>
-    </div>
+    <!-- Removed dummy map backdrop as requested -->
+
 
     <div class="sheet">
         <div class="sheet-grabber"></div>
@@ -20,9 +18,9 @@
 
         <p class="form-section-label">Vehicle & Problem</p>
         
-        <div class="job-field" style="margin-bottom: 1rem;">
-            <label for="vehicle_model" style="display: block; margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 500;">Vehicle Model / Name <span class="required">*</span></label>
-            <input type="text" id="vehicle_model" placeholder="e.g. Honda Civic" required style="width: 100%; padding: 0.75rem; border: 1px solid var(--gray-200); border-radius: var(--radius-sm); font-family: inherit;">
+        <div class="job-field" style="margin-bottom: 1.5rem; background: var(--bg-surface); padding: 1rem; border: 2px solid var(--primary); border-radius: var(--radius-md);">
+            <label for="vehicle_model" style="display: block; margin-bottom: 0.5rem; font-size: 1rem; font-weight: 600; color: var(--text-main);">Vehicle Model / Name <span class="required">*</span></label>
+            <input type="text" id="vehicle_model" placeholder="e.g. Honda Civic" required style="width: 100%; padding: 0.875rem; border: 1px solid var(--gray-300); border-radius: var(--radius-sm); font-family: inherit; font-size: 1rem; outline: none; background: #fff;">
             <span class="field-error" id="err-vehicle_model"></span>
         </div>
 
@@ -121,21 +119,15 @@
 </section>
 
 <!-- ════════════════════════════════════════════════════════
-     Step 2 — Searching (radar animation)
+     Step 2 — Searching
      ════════════════════════════════════════════════════════ -->
 <section id="step-searching" class="step-container app-shell" hidden>
-    <div class="map-backdrop searching">
-        <div class="radar-ring"></div>
-        <div class="radar-ring"></div>
-        <div class="radar-ring"></div>
-        <div class="pin"></div>
-    </div>
+    <div class="map-container" id="map-searching" style="flex: 0 0 42vh;"></div>
     <div class="sheet">
         <div class="sheet-grabber"></div>
         <p class="sheet-eyebrow">Roadside request</p>
         <h1>Finding mechanics…</h1>
         <p class="subtitle">Searching for available mechanics near you</p>
-        <div class="map-container" id="map-searching"></div>
         <div class="sheet-status-row">
             <span class="pulse-dot"></span>
             <span>Looking for nearby mechanics…</span>
@@ -147,13 +139,36 @@
 </section>
 
 <!-- ════════════════════════════════════════════════════════
-     Step 3 — Mechanic Found
+     Step 3 — Fallback (No Mechanics Found)
+     ════════════════════════════════════════════════════════ -->
+<section id="step-fallback" class="step-container app-shell" hidden>
+    <div class="sheet">
+        <div class="sheet-grabber"></div>
+        <p class="sheet-eyebrow">Search timeout</p>
+        <h1>No mechanics accepted</h1>
+        <p class="subtitle">It seems all nearby mechanics are busy.</p>
+        
+        <div style="margin-top: 1.5rem;">
+            <p style="font-weight: 600; margin-bottom: 0.5rem;">Here are some alternatives to call:</p>
+            <div id="fallback-mechanics-list" style="max-height: 200px; overflow-y: auto; margin-bottom: 1rem; border: 1px solid var(--gray-200); border-radius: var(--radius-md); padding: 0.5rem;">
+                <!-- Fallback mechanics injected here -->
+            </div>
+            
+            <a href="https://www.justdial.com/Lucknow/24-Hours-Car-Repair-Services/nct-11041425" target="_blank" class="btn btn-outline" style="width: 100%; text-align: center; display: block; margin-bottom: 0.5rem;">
+                Search on JustDial (Lucknow)
+            </a>
+            
+            <button class="btn btn-primary" id="btn-try-again" style="width: 100%;">
+                Try Again
+            </button>
+        </div>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════
+     Step 4 — Mechanic Found
      ════════════════════════════════════════════════════════ -->
 <section id="step-matched" class="step-container app-shell" hidden>
-    <div class="map-backdrop">
-        <div class="pin-pulse"></div>
-        <div class="pin"></div>
-    </div>
     <div class="sheet">
         <div class="sheet-grabber"></div>
         <p class="sheet-eyebrow">Match confirmed</p>
@@ -196,10 +211,6 @@
      Step 4 — Live Tracking
      ════════════════════════════════════════════════════════ -->
 <section id="step-tracking" class="step-container app-shell" hidden>
-    <div class="map-backdrop" id="map-tracking-backdrop">
-        <div class="pin-pulse"></div>
-        <div class="pin"></div>
-    </div>
     <div class="sheet">
         <div class="sheet-grabber"></div>
         <p class="sheet-eyebrow">On the way</p>
@@ -214,6 +225,21 @@
                 <div class="mechanic-id-text">
                     <h2 id="track-mech-name">—</h2>
                     <p id="track-mech-workshop">—</p>
+                </div>
+                <div class="icon-btn-row">
+                    <a id="track-mech-phone-link" class="icon-btn icon-btn-primary" aria-label="Call mechanic">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                    </a>
+                </div>
+            </div>
+
+            <div class="chat-container" style="margin-top: 1rem; border-top: 1px solid var(--gray-200); padding-top: 1rem;">
+                <p style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">Messages</p>
+                <div id="chat-messages" style="height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem; font-size: 0.875rem;">
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <input type="text" id="chat-input" placeholder="Type a message..." style="flex: 1; padding: 0.5rem; border: 1px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 0.875rem;">
+                    <button class="btn btn-primary" id="btn-send-chat" style="padding: 0.5rem 1rem; min-height: auto;">Send</button>
                 </div>
             </div>
         </div>
@@ -236,6 +262,18 @@
                 <span class="receipt-label">Amount paid</span>
                 <span class="receipt-value" id="complete-cash">₹—</span>
             </div>
+        </div>
+
+        <div id="rating-section" style="margin-top: 1.5rem; text-align: center; border-top: 1px solid var(--gray-200); padding-top: 1.5rem;">
+            <p style="margin-bottom: 0.5rem; font-weight: 600;">Rate your experience</p>
+            <div id="star-rating" style="display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 1rem; font-size: 2rem; color: var(--gray-300); cursor: pointer;">
+                <span data-val="1">★</span><span data-val="2">★</span><span data-val="3">★</span><span data-val="4">★</span><span data-val="5">★</span>
+            </div>
+            <button class="btn btn-outline" id="btn-submit-rating" style="width: 100%; display: none;">
+                <span class="btn-text">Submit Rating</span>
+                <span class="btn-loading" hidden>Submitting…</span>
+            </button>
+            <p id="rating-success-msg" style="display: none; color: var(--success); margin-top: 0.5rem;">Thank you for your rating!</p>
         </div>
 
         <button class="btn btn-primary" id="btn-download-receipt" style="margin-top: 1rem;">

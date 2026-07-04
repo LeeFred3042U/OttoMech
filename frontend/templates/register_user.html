@@ -43,6 +43,20 @@
             <span class="btn-text">Create account</span>
             <span class="btn-loading" hidden>Creating…</span>
         </button>
+        
+        <div style="display:flex; align-items:center; margin: 1.5rem 0;">
+            <div style="flex:1; height:1px; background:var(--border);"></div>
+            <span style="padding: 0 1rem; color:var(--text-muted); font-size:0.875rem;">or</span>
+            <div style="flex:1; height:1px; background:var(--border);"></div>
+        </div>
+        
+        <div id="g_id_onload"
+             data-client_id="{{ google_client_id }}"
+             data-context="signup"
+             data-ux_mode="popup"
+             data-callback="onGoogleAuthUser">
+        </div>
+        <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signup_with" data-size="large" data-logo_alignment="left" style="width:100%; display:flex; justify-content:center;"></div>
     </form>
 
     <div class="auth-footer">
@@ -75,5 +89,9 @@
         fields: ['first_name', 'email', 'phone_number'],
         optionalFields: ['last_name'],
     });
+
+    function onGoogleAuthUser(response) {
+        handleGoogleCredentialResponse(response, 'user', '/dashboard/user');
+    }
 </script>
 {% endblock %}

@@ -2,8 +2,8 @@ Flask==3.0.3
 psycopg2-binary>=2.9.10
 python-dotenv==1.0.1
 flask-socketio==5.3.6
-# eventlet required for production gunicorn deployment (Render).
-# async_mode="threading" is used in development and tests (no monkey-patching needed).
+
 eventlet==0.35.2
 gunicorn==22.0.0
 reportlab>=4.0.0
+pywebpush>=1.14.0google-auth>=2.23.0

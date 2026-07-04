@@ -1,11 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Dashboard — Mechanic | OttoMech{% endblock %}
-
-{% block nav_links %}
-<a href="/">Home</a>
-<a href="/register/mechanic">Sign Up</a>
-<a href="/login/mechanic" class="nav-cta">Log In</a>
-{% endblock %}
+{% block nav_links %}{% endblock %}
 
 {% block content %}
 <!-- ════════════════════════════════════════════════════════
@@ -48,10 +43,27 @@
     <div class="card">
         <h1>Active Job</h1>
         <div class="active-job-card">
-            <div class="job-card-header">
-                <span class="job-type" id="active-issue-type">—</span>
-                <span class="job-distance" id="active-distance">—</span>
+            <div class="job-card-header" style="justify-content: space-between; display: flex; align-items: center; margin-bottom: 1rem;">
+                <div>
+                    <span class="job-type" id="active-issue-type">—</span>
+                    <span class="job-distance" id="active-distance" style="margin-left: 0.5rem; color: var(--text-muted);">—</span>
+                </div>
+                <a id="active-phone-link" class="icon-btn icon-btn-primary" aria-label="Call customer" style="text-decoration: none; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; background: var(--primary); color: #fff;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                </a>
             </div>
+
+            <div class="chat-container" style="margin-top: 1rem; border-top: 1px solid var(--gray-200); padding-top: 1rem;">
+                <p style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem;">Messages</p>
+                <div id="chat-messages" style="height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 0.5rem; font-size: 0.875rem;">
+                </div>
+                <div style="display: flex; gap: 0.5rem;">
+                    <input type="text" id="chat-input" placeholder="Type a message..." style="flex: 1; padding: 0.5rem; border: 1px solid var(--gray-300); border-radius: var(--radius-sm); font-size: 0.875rem;">
+                    <button class="btn btn-primary" id="btn-send-chat" style="padding: 0.5rem 1rem; min-height: auto;">Send</button>
+                </div>
+            </div>
+
+            <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem;"></div>
             <div class="map-container" id="map-active"></div>
             <div class="gps-indicator">
                 <div class="gps-dot"></div>
@@ -78,6 +90,20 @@
         <h1>Job Complete</h1>
         <p class="subtitle">The customer has been notified. You'll receive new jobs automatically.</p>
         <button class="btn btn-primary" id="btn-back-online" type="button" style="margin-top: 1.5rem;">Back to Dashboard</button>
+    </div>
+</section>
+
+<!-- ════════════════════════════════════════════════════════
+     Panel D — Earnings (Empty state)
+     ════════════════════════════════════════════════════════ -->
+<section id="panel-earnings" class="step-container" hidden>
+    <div class="card">
+        <h1>Earnings</h1>
+        <p class="subtitle">Your recent payouts and jobs</p>
+        <div style="margin-top: 2rem; text-align: center; color: var(--text-muted);">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem; opacity: 0.5;"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+            <p>No earnings data available yet.</p>
+        </div>
     </div>
 </section>
 

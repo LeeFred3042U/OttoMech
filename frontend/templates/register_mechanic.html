@@ -82,6 +82,20 @@
             <span class="btn-text">Register</span>
             <span class="btn-loading" hidden>Registering…</span>
         </button>
+        
+        <div style="display:flex; align-items:center; margin: 1.5rem 0;">
+            <div style="flex:1; height:1px; background:var(--border);"></div>
+            <span style="padding: 0 1rem; color:var(--text-muted); font-size:0.875rem;">or</span>
+            <div style="flex:1; height:1px; background:var(--border);"></div>
+        </div>
+        
+        <div id="g_id_onload"
+             data-client_id="{{ google_client_id }}"
+             data-context="signup"
+             data-ux_mode="popup"
+             data-callback="onGoogleAuthMechanic">
+        </div>
+        <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signup_with" data-size="large" data-logo_alignment="left" style="width:100%; display:flex; justify-content:center;"></div>
     </form>
 
     <div class="auth-footer">
@@ -185,7 +199,11 @@
         endpoint: '/auth/register/mechanic',
         fields: ['first_name', 'last_name', 'gender', 'email', 'phone_number', 'workshop_name'],
         optionalFields: [],
-        useGeolocation: true,
+        useGeolocation: false,
     });
+
+    function onGoogleAuthMechanic(response) {
+        handleGoogleCredentialResponse(response, 'mechanic', '/dashboard/mechanic');
+    }
 </script>
 {% endblock %}

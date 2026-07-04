@@ -13,6 +13,7 @@ var OttoDashboard = (function () {
     var _token = null;
     var _userId = null;
     var _role = null;
+    var _currentStep = 'issue';
     var _socket = null;
     var _jobId = null;
     var _selectedIssues = [];
@@ -76,6 +77,8 @@ var OttoDashboard = (function () {
         _bindDescriptionToggle();
         _bindFindButton();
         _bindReceiptButton();
+        _bindRating();
+        _bindChat();
         _bindNavigation();
         _requestGeolocation();
         _connectSocket();
@@ -257,6 +260,15 @@ var OttoDashboard = (function () {
         _els.btnFind.addEventListener('click', function () {
             _createJob();
         });
+        
+        var btnTryAgain = document.getElementById('btn-try-again');
+        if (btnTryAgain) {
+            btnTryAgain.addEventListener('click', function () {
+                _showStep('issue');
+                _els.btnFind.disabled = false;
+                _els.noMechanicsMsg.hidden = true;
+            });
+        }
     }
 
     function _createJob() {
@@ -310,8 +322,10 @@ var OttoDashboard = (function () {
                 // Handle no mechanics notified
                 if (r.body.mechanics_notified === 0) {
                     _els.noMechanicsMsg.hidden = false;
-                    _startPolling();
                 }
+                
+                // Start polling/timeout for fallback
+                _startPolling();
             }
         })
         .catch(function () {
@@ -324,8 +338,9 @@ var OttoDashboard = (function () {
         _pollCount = 0;
         _pollTimer = setInterval(function () {
             _pollCount++;
-            if (_pollCount > 5) {
+            if (_pollCount > 6) { // 60 seconds total
                 clearInterval(_pollTimer);
+                _showFallback();
                 return;
             }
             fetch('/jobs/' + _jobId, {
@@ -340,14 +355,62 @@ var OttoDashboard = (function () {
             .catch(function () {});
         }, 10000);
     }
+    
+    function _showFallback() {
+        _showStep('fallback');
+        
+        var listContainer = document.getElementById('fallback-mechanics-list');
+        if (!listContainer) return;
+        
+        listContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted); font-size: 0.875rem;">Loading mechanics...</p>';
+        
+        fetch('/mechanics/available?limit=5', {
+            headers: { 'Authorization': 'Bearer ' + _token }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            listContainer.innerHTML = '';
+            if (!data.mechanics || data.mechanics.length === 0) {
+                listContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted); font-size: 0.875rem;">No other mechanics found.</p>';
+                return;
+            }
+            
+            data.mechanics.forEach(function(mech) {
+                var rating = mech.rating ? mech.rating + ' ★' : 'New';
+                var html = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-100);">
+                        <div>
+                            <p style="font-weight: 500; font-size: 0.875rem;">${mech.first_name} ${mech.last_name} <span style="color: var(--warning); font-size: 0.75rem;">${rating}</span></p>
+                            <p style="color: var(--text-muted); font-size: 0.75rem;">${mech.workshop_name}</p>
+                        </div>
+                        <a href="tel:${mech.phone_number}" class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">Call</a>
+                    </div>
+                `;
+                listContainer.insertAdjacentHTML('beforeend', html);
+            });
+        })
+        .catch(function() {
+            listContainer.innerHTML = '<p style="text-align: center; color: var(--error); font-size: 0.875rem;">Failed to load mechanics.</p>';
+        });
+    }
 
     // ── Step management ──────────────────────────────────────
     function _showStep(step) {
+        // Keep track of the active job step if we are showing it
+        if (['issue', 'searching', 'fallback', 'matched', 'tracking', 'complete'].indexOf(step) !== -1) {
+            _currentStep = step;
+        }
+
         _els.stepIssue.hidden = step !== 'issue';
         _els.stepSearching.hidden = step !== 'searching';
+        
+        var stepFallback = document.getElementById('step-fallback');
+        if (stepFallback) stepFallback.hidden = step !== 'fallback';
+        
         _els.stepMatched.hidden = step !== 'matched';
         _els.stepTracking.hidden = step !== 'tracking';
         _els.stepComplete.hidden = step !== 'complete';
+        
         var panelAccount = document.getElementById('panel-account');
         if (panelAccount) panelAccount.hidden = step !== 'account';
         var panelActivity = document.getElementById('panel-activity');
@@ -414,9 +477,19 @@ var OttoDashboard = (function () {
             }
 
             // Also populate tracking card
-            document.getElementById('track-mech-name').textContent = data.mechanic_name || '—';
-            document.getElementById('track-mech-workshop').textContent = data.workshop_name || '—';
+            var dist = data.distance_km != null ? data.distance_km.toFixed(1) + ' km away' : '';
+            document.getElementById('track-mech-name').textContent = data.mechanic_name || 'Mechanic';
+            document.getElementById('track-mech-workshop').textContent = data.workshop_name || dist;
 
+            var trackPhoneLink = document.getElementById('track-mech-phone-link');
+            if (trackPhoneLink && data.phone) {
+                trackPhoneLink.href = 'tel:' + data.phone;
+                trackPhoneLink.title = 'Call ' + data.phone;
+                trackPhoneLink.setAttribute('aria-label', 'Call ' + data.phone);
+            }
+
+            _loadChatMessages();
+            
             // Show matched step briefly, then transition to tracking
             _showStep('matched');
             setTimeout(function () {
@@ -449,10 +522,19 @@ var OttoDashboard = (function () {
         });
 
         _socket.on('job_completed', function (data) {
+            _driverMarker = null;
+            _mechanicMarker = null;
+
             var cashAmount = data.cash_amount != null ? '₹' + parseFloat(data.cash_amount).toFixed(0) : '₹—';
             document.getElementById('complete-cash').textContent = cashAmount;
             _showStep('complete');
         });
+
+        _socket.on('chat_message', function (data) {
+            _appendChatMessage(data);
+        });
+
+        _socket.on('error', function (err) {});
     }
 
     // ── Receipt Download ─────────────────────────────────────
@@ -492,6 +574,112 @@ var OttoDashboard = (function () {
         });
     }
 
+    // ── Rating Submission ────────────────────────────────────
+    function _bindRating() {
+        var stars = document.querySelectorAll('#star-rating span');
+        var btnSubmit = document.getElementById('btn-submit-rating');
+        var successMsg = document.getElementById('rating-success-msg');
+        var selectedRating = 0;
+
+        if (!stars.length || !btnSubmit) return;
+
+        stars.forEach(function (star) {
+            star.addEventListener('click', function () {
+                selectedRating = parseInt(this.getAttribute('data-val'), 10);
+                stars.forEach(function (s) {
+                    var val = parseInt(s.getAttribute('data-val'), 10);
+                    s.style.color = val <= selectedRating ? 'var(--warning)' : 'var(--gray-300)';
+                });
+                btnSubmit.style.display = 'block';
+            });
+        });
+
+        btnSubmit.addEventListener('click', function () {
+            if (!_jobId || !selectedRating) return;
+            
+            _setBtnLoading(btnSubmit, true);
+            fetch('/jobs/' + _jobId + '/rate', {
+                method: 'POST',
+                headers: { 
+                    'Authorization': 'Bearer ' + _token,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ rating: selectedRating })
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                _setBtnLoading(btnSubmit, false);
+                if (data.message) {
+                    btnSubmit.style.display = 'none';
+                    successMsg.style.display = 'block';
+                }
+            })
+            .catch(function () {
+                _setBtnLoading(btnSubmit, false);
+            });
+        });
+    }
+
+    // ── Chat Logic ───────────────────────────────────────────
+    function _bindChat() {
+        var btnSend = document.getElementById('btn-send-chat');
+        var inputChat = document.getElementById('chat-input');
+        if (!btnSend || !inputChat) return;
+
+        btnSend.addEventListener('click', function() {
+            var msg = inputChat.value.trim();
+            if (!msg || !_jobId || !_socket) return;
+            
+            _socket.emit('chat_message', {
+                session_token: _token,
+                job_id: _jobId,
+                message: msg
+            });
+            inputChat.value = '';
+        });
+
+        inputChat.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                btnSend.click();
+            }
+        });
+    }
+
+    function _loadChatMessages() {
+        var container = document.getElementById('chat-messages');
+        if (!container || !_jobId) return;
+        
+        container.innerHTML = '';
+        fetch('/jobs/' + _jobId + '/messages', {
+            headers: { 'Authorization': 'Bearer ' + _token }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.messages) {
+                data.messages.forEach(_appendChatMessage);
+            }
+        })
+        .catch(function(err) { console.error('Failed to load chat:', err); });
+    }
+
+    function _appendChatMessage(data) {
+        var container = document.getElementById('chat-messages');
+        if (!container) return;
+
+        var isMe = data.sender_role === 'user';
+        var div = document.createElement('div');
+        div.style.padding = '0.5rem';
+        div.style.borderRadius = 'var(--radius-sm)';
+        div.style.maxWidth = '80%';
+        div.style.alignSelf = isMe ? 'flex-end' : 'flex-start';
+        div.style.background = isMe ? 'var(--primary)' : 'var(--gray-100)';
+        div.style.color = isMe ? '#fff' : 'var(--text-main)';
+        
+        div.textContent = data.message;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
     // ── Button loading state ─────────────────────────────────
     function _setBtnLoading(btn, loading) {
         btn.disabled = loading;
@@ -523,7 +711,7 @@ var OttoDashboard = (function () {
                 _showStep('activity');
                 _fetchActivity();
             } else {
-                _showStep('issue');
+                _showStep(_currentStep);
             }
         }
 

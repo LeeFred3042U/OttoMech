@@ -137,7 +137,7 @@ var OttoLogin = (function () {
             } else {
                 // Check if email delivery failed
                 if (body.email_delivery === 'failed') {
-                    _showEmailWarning('Email delivery failed — check the server terminal for your OTP code.');
+                    _showEmailWarning('Email delivery failed — please resend email.');
                 }
                 // Show OTP step
                 _els.stepEmail.hidden = true;

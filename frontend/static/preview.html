@@ -378,7 +378,33 @@
             </div>
         </div>
 
-        <!-- Dashboard - Step 3 (Match) -->
+        <!-- Dashboard - Step 3 (Fallback) -->
+        <div class="phone-wrapper">
+            <span class="phone-label">Dashboard - Fallback</span>
+            <div class="phone-frame">
+                <div class="sheet" style="padding-top: 1rem;">
+                    <p class="sheet-eyebrow">Search timeout</p>
+                    <h1 style="font-size: 1.5rem; margin-top: 0.5rem;">No mechanics accepted</h1>
+                    <p class="subtitle" style="color: var(--text-secondary); font-size: 0.875rem;">It seems all nearby mechanics are busy.</p>
+                    <div style="margin-top: 1.5rem;">
+                        <p style="font-weight: 600; margin-bottom: 0.5rem; font-size: 0.875rem;">Alternatives to call:</p>
+                        <div style="max-height: 120px; overflow-y: auto; margin-bottom: 1rem; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.5rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--border);">
+                                <div>
+                                    <p style="font-weight: 500; font-size: 0.875rem; margin:0;">Raju Kumar <span style="color: var(--warning); font-size: 0.75rem;">4.2 ★</span></p>
+                                    <p style="color: var(--text-muted); font-size: 0.75rem; margin:0;">Raju Auto Works</p>
+                                </div>
+                                <a class="btn btn-outline" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; min-height: auto;">Call</a>
+                            </div>
+                        </div>
+                        <button class="btn btn-outline btn-full" style="margin-bottom: 0.5rem;">Search on JustDial</button>
+                        <button class="btn btn-primary btn-full">Try Again</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard - Step 4 (Match) -->
         <div class="phone-wrapper">
             <span class="phone-label">Dashboard - Step 3 (Match)</span>
             <div class="phone-frame">
@@ -482,6 +508,17 @@
                         <span style="font-size:0.875rem; color:var(--text-secondary);">Sharing your location</span>
                     </div>
                     <hr style="border:none; border-top:1px solid var(--border-subtle); margin:1rem 0;">
+                    <div class="chat-container" style="margin-bottom: 1rem;">
+                        <p style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.5rem;">CHAT</p>
+                        <div style="height: 60px; overflow-y: auto; display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 0.5rem; font-size: 0.75rem; background: var(--bg-surface); padding: 0.5rem; border-radius: var(--radius-sm);">
+                            <div style="align-self: flex-start; background: #fff; padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid var(--border);">Where are you?</div>
+                            <div style="align-self: flex-end; background: var(--primary); color: #fff; padding: 0.25rem 0.5rem; border-radius: 4px;">Almost there</div>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input type="text" placeholder="Reply..." style="flex: 1; padding: 0.25rem 0.5rem; font-size: 0.75rem; border: 1px solid var(--border); border-radius: 4px;">
+                            <button class="btn btn-primary" style="padding: 0 0.5rem; min-height: auto; font-size: 0.75rem;">Send</button>
+                        </div>
+                    </div>
                     <div class="input-group">
                         <label class="common-label">CASH COLLECTED (₹)</label>
                         <input type="number" class="common-input" style="font-size:1.25rem; font-weight:700;" value="450">

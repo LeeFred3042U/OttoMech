@@ -64,6 +64,7 @@ var OttoMechDashboard = (function () {
         _bindAvailability();
         _bindComplete();
         _bindBackOnline();
+        _bindChat();
         _bindNavigation();
         _connectSocket();
 
@@ -71,6 +72,50 @@ var OttoMechDashboard = (function () {
         window.addEventListener('beforeunload', function () {
             _stopGps();
         });
+
+        // Push Notifications
+        _initPushNotifications();
+    }
+
+    function _initPushNotifications() {
+        if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+        
+        navigator.serviceWorker.register('/static/sw.js')
+        .then(function(swReg) {
+            return fetch('/push/vapid-public-key').then(function(r) { return r.json(); })
+            .then(function(data) {
+                var vapidPublicKey = data.public_key;
+                var convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+                return swReg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: convertedVapidKey
+                });
+            });
+        })
+        .then(function(subscription) {
+            return fetch('/push/subscribe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + _token
+                },
+                body: JSON.stringify(subscription)
+            });
+        })
+        .catch(function(err) {
+            console.error('Push registration failed:', err);
+        });
+    }
+
+    function urlBase64ToUint8Array(base64String) {
+        var padding = '='.repeat((4 - base64String.length % 4) % 4);
+        var base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        var rawData = window.atob(base64);
+        var outputArray = new Uint8Array(rawData.length);
+        for (var i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
     }
 
     function _cacheDom() {
@@ -79,6 +124,7 @@ var OttoMechDashboard = (function () {
         _els.panelActive = document.getElementById('panel-active');
         _els.panelDone = document.getElementById('panel-done');
         _els.togglePill = document.getElementById('availability-toggle');
+        _els.btnToggle = document.getElementById('availability-toggle');
         _els.toggleLabel = _els.togglePill.querySelector('.toggle-label');
         _els.toggleStatus = document.getElementById('availability-status');
         _els.waitingMsg = document.getElementById('waiting-msg');
@@ -91,38 +137,66 @@ var OttoMechDashboard = (function () {
     // ── Availability Toggle ──────────────────────────────────
     function _bindAvailability() {
         _els.togglePill.addEventListener('click', function () {
-            _toggleAvailability();
+            _toggleOnline();
         });
     }
 
-    function _toggleAvailability() {
+    function _toggleOnline() {
         var newState = !_isOnline;
+        var btn = _els.btnToggle;
+        if (btn) btn.disabled = true;
 
-        fetch('/mechanics/' + _mechanicId + '/availability', {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + _token,
-            },
-            body: JSON.stringify({ is_available: newState }),
-        })
-        .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
-        .then(function (result) {
-            if (result.status === 200) {
-                _isOnline = result.body.is_available;
-                _updateToggleUI();
+        var payload = { is_available: newState };
 
-                if (!_isOnline) {
-                    _stopGps();
-                    _els.panelIncoming.hidden = true;
-                    _els.waitingMsg.hidden = true;
-                } else {
-                    _els.panelIncoming.hidden = false;
-                    _els.waitingMsg.hidden = false;
+        function sendUpdate() {
+            fetch('/mechanics/' + _mechanicId + '/availability', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + _token,
+                },
+                body: JSON.stringify(payload),
+            })
+            .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
+            .then(function (result) {
+                if (btn) btn.disabled = false;
+                if (result.status === 200) {
+                    _isOnline = result.body.is_available;
+                    _updateToggleUI();
+
+                    if (!_isOnline) {
+                        _stopGps();
+                        _els.panelIncoming.hidden = true;
+                        _els.waitingMsg.hidden = true;
+                    } else {
+                        _els.panelIncoming.hidden = false;
+                        _els.waitingMsg.hidden = false;
+                        if (!_activeJobId) {
+                            _startIdleGps();
+                        }
+                    }
                 }
-            }
-        })
-        .catch(function () {});
+            })
+            .catch(function () {
+                if (btn) btn.disabled = false;
+            });
+        }
+
+        if (newState && navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    payload.lat = pos.coords.latitude;
+                    payload.lng = pos.coords.longitude;
+                    sendUpdate();
+                },
+                function() {
+                    sendUpdate();
+                },
+                { timeout: 5000, enableHighAccuracy: true }
+            );
+        } else {
+            sendUpdate();
+        }
     }
 
     function _updateToggleUI() {
@@ -241,6 +315,13 @@ var OttoMechDashboard = (function () {
                 document.getElementById('active-issue-type').textContent =
                     (issue || 'unknown').replace(/_/g, ' ');
 
+                var activePhoneLink = document.getElementById('active-phone-link');
+                if (result.body.job && result.body.job.driver_phone && activePhoneLink) {
+                    activePhoneLink.href = 'tel:' + result.body.job.driver_phone;
+                    activePhoneLink.title = 'Call ' + result.body.job.driver_phone;
+                }
+
+                _loadChatMessages();
                 _showPanel('active');
                 _initActiveMap();
                 _startGps();
@@ -271,7 +352,36 @@ var OttoMechDashboard = (function () {
         _mechanicMarker = null;
     }
 
-    // ── GPS Emit Loop ────────────────────────────────────────
+    // ── Idle GPS Emit Loop (No Job) ──────────────────────────
+    function _startIdleGps() {
+        _stopGps(); // clear any existing interval
+        _gpsInterval = setInterval(function () {
+            if (_activeJobId || !_isOnline) { _stopGps(); return; }
+            if (!navigator.geolocation) return;
+            
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    // Just update DB in the background
+                    fetch('/mechanics/' + _mechanicId + '/availability', {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + _token,
+                        },
+                        body: JSON.stringify({ 
+                            is_available: true,
+                            lat: pos.coords.latitude,
+                            lng: pos.coords.longitude 
+                        })
+                    }).catch(function(){});
+                },
+                function() {},
+                { timeout: 5000, enableHighAccuracy: true }
+            );
+        }, 30000); // every 30s while idle
+    }
+
+    // ── GPS Emit Loop (Active Job) ───────────────────────────
     function _startGps() {
         _stopGps(); // clear any existing interval
         _gpsInterval = setInterval(function () {
@@ -404,6 +514,8 @@ var OttoMechDashboard = (function () {
         var panelActive = document.getElementById('panel-active');
         var panelDone = document.getElementById('panel-done');
 
+        var panelEarnings = document.getElementById('panel-earnings');
+
         function switchTab(tabId) {
             tabJobs.classList.toggle('active', tabId === 'jobs');
             tabEarnings.classList.toggle('active', tabId === 'earnings');
@@ -414,12 +526,19 @@ var OttoMechDashboard = (function () {
                 if (panelIncoming) panelIncoming.hidden = true;
                 if (panelActive) panelActive.hidden = true;
                 if (panelDone) panelDone.hidden = true;
+                if (panelEarnings) panelEarnings.hidden = true;
                 if (panelAccount) panelAccount.hidden = false;
                 _fetchAccount();
             } else if (tabId === 'earnings') {
-                // Not implemented yet
+                if (panelStatus) panelStatus.hidden = true;
+                if (panelIncoming) panelIncoming.hidden = true;
+                if (panelActive) panelActive.hidden = true;
+                if (panelDone) panelDone.hidden = true;
+                if (panelAccount) panelAccount.hidden = true;
+                if (panelEarnings) panelEarnings.hidden = false;
             } else {
                 if (panelAccount) panelAccount.hidden = true;
+                if (panelEarnings) panelEarnings.hidden = true;
                 _showPanel(_currentStep || 'status');
             }
         }
@@ -495,12 +614,79 @@ var OttoMechDashboard = (function () {
         });
     }
 
+    // ── Chat Logic ───────────────────────────────────────────
+    function _bindChat() {
+        var btnSend = document.getElementById('btn-send-chat');
+        var inputChat = document.getElementById('chat-input');
+        if (!btnSend || !inputChat) return;
+
+        btnSend.addEventListener('click', function() {
+            var msg = inputChat.value.trim();
+            if (!msg || !_activeJobId || !_socket) return;
+            
+            _socket.emit('chat_message', {
+                session_token: _token,
+                job_id: _activeJobId,
+                message: msg
+            });
+            inputChat.value = '';
+        });
+
+        inputChat.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                btnSend.click();
+            }
+        });
+    }
+
+    function _loadChatMessages() {
+        var container = document.getElementById('chat-messages');
+        if (!container || !_activeJobId) return;
+        
+        container.innerHTML = '';
+        fetch('/jobs/' + _activeJobId + '/messages', {
+            headers: { 'Authorization': 'Bearer ' + _token }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.messages) {
+                data.messages.forEach(_appendChatMessage);
+            }
+        })
+        .catch(function(err) { console.error('Failed to load chat:', err); });
+    }
+
+    function _appendChatMessage(data) {
+        var container = document.getElementById('chat-messages');
+        if (!container) return;
+
+        var isMe = data.sender_role === 'mechanic';
+        var div = document.createElement('div');
+        div.style.padding = '0.5rem';
+        div.style.borderRadius = 'var(--radius-sm)';
+        div.style.maxWidth = '80%';
+        div.style.alignSelf = isMe ? 'flex-end' : 'flex-start';
+        div.style.background = isMe ? 'var(--primary)' : 'var(--gray-100)';
+        div.style.color = isMe ? '#fff' : 'var(--text-main)';
+        
+        div.textContent = data.message;
+        container.appendChild(div);
+        container.scrollTop = container.scrollHeight;
+    }
+
     // ── Auto-init on DOMContentLoaded ────────────────────────
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
+    
+    // Automatically go online after short delay if offline
+    setTimeout(function() {
+        if (!_isOnline) {
+            _toggleOnline();
+        }
+    }, 1000);
 
     return { init: init };
 })();

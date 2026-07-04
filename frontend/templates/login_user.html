@@ -23,6 +23,20 @@
             <span class="btn-text">Continue</span>
             <span class="btn-loading" hidden>Sending…</span>
         </button>
+        
+        <div style="display:flex; align-items:center; margin: 1.5rem 0;">
+            <div style="flex:1; height:1px; background:var(--border);"></div>
+            <span style="padding: 0 1rem; color:var(--text-muted); font-size:0.875rem;">or</span>
+            <div style="flex:1; height:1px; background:var(--border);"></div>
+        </div>
+        
+        <div id="g_id_onload"
+             data-client_id="{{ google_client_id }}"
+             data-context="signin"
+             data-ux_mode="popup"
+             data-callback="onGoogleAuthUser">
+        </div>
+        <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large" data-logo_alignment="left" style="width:100%; display:flex; justify-content:center;"></div>
     </form>
 
     <div class="auth-footer">
@@ -154,5 +168,9 @@
         verifyEndpoint: '/auth/verify-otp',
         dashboardUrl: '/dashboard/user',
     });
+
+    function onGoogleAuthUser(response) {
+        handleGoogleCredentialResponse(response, 'user', '/dashboard/user');
+    }
 </script>
 {% endblock %}

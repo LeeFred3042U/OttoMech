@@ -10,6 +10,8 @@ load_dotenv(env_path)
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 DROP_TABLES_SQL = """
+DROP TABLE IF EXISTS push_subscriptions CASCADE;
+DROP TABLE IF EXISTS chat_messages CASCADE;
 DROP TABLE IF EXISTS receipts CASCADE;
 DROP TABLE IF EXISTS mri_events CASCADE;
 DROP TABLE IF EXISTS job_broadcasts CASCADE;
@@ -36,18 +38,10 @@ CREATE TABLE users (
     password_hash    TEXT,
     password_deadline TIMESTAMPTZ NULL,
     phone_verified   BOOLEAN DEFAULT TRUE,
-    email_verified   BOOLEAN DEFAULT FALSE,  /* stays FALSE until user explicitly verifies */
+    email_verified   BOOLEAN DEFAULT FALSE,
     last_login       TIMESTAMPTZ,
     two_fa_enabled   BOOLEAN DEFAULT FALSE,
     two_fa_method    VARCHAR(20)
-);
-
-CREATE TABLE password_setup_tokens (
-    token       TEXT PRIMARY KEY,
-    user_id     UUID REFERENCES users(user_id),
-    created_at  TIMESTAMPTZ DEFAULT now(),
-    expires_at  TIMESTAMPTZ,
-    used_at     TIMESTAMPTZ NULL
 );
 
 CREATE TABLE mechanics (
@@ -64,9 +58,6 @@ CREATE TABLE mechanics (
     workshop_name    VARCHAR(150) NOT NULL,
     address          TEXT,
     zone             VARCHAR(50),
-    lat              NUMERIC(9,6),
-    lng              NUMERIC(9,6),
-    location         GEOGRAPHY(POINT, 4326),
     is_available     BOOLEAN DEFAULT FALSE,
     rating           NUMERIC(3,2) DEFAULT 0.00,
     review_count     INT DEFAULT 0,
@@ -81,7 +72,14 @@ CREATE TABLE mechanics (
     two_fa_method    VARCHAR(20)
 );
 
-CREATE INDEX idx_mechanics_location ON mechanics USING GIST(location);
+CREATE TABLE password_setup_tokens (
+    token       TEXT PRIMARY KEY,
+    user_id     UUID REFERENCES users(user_id),
+    mechanic_id UUID REFERENCES mechanics(mechanic_id),
+    created_at  TIMESTAMPTZ DEFAULT now(),
+    expires_at  TIMESTAMPTZ,
+    used_at     TIMESTAMPTZ NULL
+);
 
 CREATE TABLE otp_store (
     email        VARCHAR(255) PRIMARY KEY,
@@ -100,13 +98,12 @@ CREATE TABLE jobs (
     status           VARCHAR(30) DEFAULT 'pending',
     lat              NUMERIC(9,6),
     lng              NUMERIC(9,6),
-    driver_location  GEOGRAPHY(POINT, 4326),
-    photo_base64     TEXT,
     photos           JSONB,
     cash_amount      NUMERIC(8,2),
     created_at       TIMESTAMPTZ DEFAULT NOW(),
     accepted_at      TIMESTAMPTZ,
-    completed_at     TIMESTAMPTZ
+    completed_at     TIMESTAMPTZ,
+    job_rating       INT
 );
 
 CREATE TABLE job_broadcasts (
@@ -140,6 +137,25 @@ CREATE TABLE receipts (
     warranty_days   INT DEFAULT 0,
     created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE TABLE chat_messages (
+    id SERIAL PRIMARY KEY,
+    job_id UUID REFERENCES jobs(job_id),
+    sender_id UUID NOT NULL,
+    sender_role VARCHAR(20) NOT NULL,
+    message TEXT NOT NULL,
+    sent_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_chat_messages_job ON chat_messages(job_id);
+
+CREATE TABLE push_subscriptions (
+    id SERIAL PRIMARY KEY,
+    entity_id UUID NOT NULL,
+    role VARCHAR(20) NOT NULL,
+    subscription_json JSONB NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_push_subs_entity ON push_subscriptions(entity_id);
 """
 
 
@@ -198,5 +214,6 @@ def init_db(force_reset=False):
                     cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS vehicle_model VARCHAR(100);")
                     cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS photos JSONB;")
                     cur.execute("ALTER TABLE jobs ALTER COLUMN issue_type TYPE TEXT;")
+                    cur.execute("ALTER TABLE password_setup_tokens ADD COLUMN IF NOT EXISTS mechanic_id UUID REFERENCES mechanics(mechanic_id);")
                 except Exception:
                     pass

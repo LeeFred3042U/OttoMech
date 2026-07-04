@@ -39,10 +39,17 @@ def create_app():
     app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "ottomech_dev")
     app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024  # 100MB to support 30MB base64 uploads
 
+    from routes.push import push_bp
+    
     app.register_blueprint(auth_bp)
     app.register_blueprint(mechanic_bp)
     app.register_blueprint(job_bp)
     app.register_blueprint(receipt_bp)
+    app.register_blueprint(push_bp)
+
+    @app.context_processor
+    def inject_google_client_id():
+        return dict(google_client_id=os.getenv("GOOGLE_CLIENT_ID", ""))
 
     @app.route("/", methods=["GET"])
     def index():

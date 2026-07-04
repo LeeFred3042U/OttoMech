@@ -133,16 +133,15 @@ def create_job():
                     """
                     INSERT INTO jobs (
                         driver_id, issue_type, status, lat, lng,
-                        driver_location, vehicle_model, photos
+                        vehicle_model, photos
                     )
                     VALUES (
                         %s, %s, 'pending', %s, %s,
-                        ST_SetSRID(ST_MakePoint(%s, %s), 4326)::geography,
                         %s, %s
                     )
                     RETURNING job_id;
                     """,
-                    (driver_id, issue_type, lat, lng, lng, lat, vehicle_model, photos_json),
+                    (driver_id, issue_type, lat, lng, vehicle_model, photos_json),
                 )
                 job_id = cur.fetchone()[0]
 
@@ -158,6 +157,7 @@ def create_job():
                 job_row = _fetch_job(cur, job_id)
     except Exception:
         return db_error_response()
+
 
     # ---- Stage 4: emit 'new_job' to broadcasted mechanics' rooms --------
     # DB transaction already committed at this point.  A socket failure must
@@ -178,6 +178,20 @@ def create_job():
                 mechanic_ids=mechanic_ids,
                 accept_deadline=accept_deadline,
             )
+
+            # Trigger push notifications for the broadcasted mechanics
+            try:
+                from routes.push import send_push_notification
+                payload = {
+                    "title": "New Job Request",
+                    "body": f"A user requested help for: {issue_type}. Open the app to respond.",
+                    "url": "/dashboard/mechanic"
+                }
+                for mech_id in mechanic_ids:
+                    send_push_notification(mech_id, payload)
+            except Exception as e:
+                logger.error("Failed to send push notifications: %s", e)
+                
     except Exception:
         logger.exception("Socket emit 'new_job' failed for job %s (non-fatal)", job_id)
     # ---------------------------------------------------------------------
@@ -256,15 +270,11 @@ def accept_job(job_id):
                 cur.execute(
                     """
                     SELECT first_name, last_name, workshop_name, mri_score,
-                           phone_number,
-                           ST_Distance(
-                               location,
-                               (SELECT driver_location FROM jobs WHERE job_id = %s)
-                           ) AS distance_m
+                           phone_number
                     FROM mechanics
                     WHERE mechanic_id = %s;
                     """,
-                    (job_id, mechanic_id),
+                    (mechanic_id,),
                 )
                 mech_row = cur.fetchone()
     except Exception:
@@ -276,13 +286,12 @@ def accept_job(job_id):
         sio = current_app.extensions.get("socketio")
         if sio and mech_row:
             driver_id = row[1]  # _serialize_job row index 1 = driver_id
-            distance_km = round(float(mech_row[5]) / 1000, 2) if mech_row[5] else None
             mechanic_data = {
                 "name": f"{mech_row[0]} {mech_row[1]}".strip(),
                 "workshop_name": mech_row[2],
                 "mri_score": float(mech_row[3]) if mech_row[3] else None,
                 "phone": mech_row[4],
-                "distance_km": distance_km,
+                "distance_km": None,
             }
             emit_match_confirmed(
                 sio,
@@ -291,11 +300,21 @@ def accept_job(job_id):
                 mechanic_data=mechanic_data,
             )
 
-            # Update active_jobs so mechanic_location pings know driver's SID.
-            # We can't know the driver's SID here (REST context, not socket),
-            # but we ensure the entry exists so rejoin_job can populate it.
             if str(job_id) not in active_jobs:
                 active_jobs[str(job_id)] = {"driver_sid": None, "mechanic_sid": None}
+
+            # Trigger push notification for the driver
+            try:
+                from routes.push import send_push_notification
+                payload = {
+                    "title": "Mechanic Found!",
+                    "body": f"{mechanic_data['name']} is on their way. Open the app to track.",
+                    "url": "/dashboard/user"
+                }
+                send_push_notification(str(driver_id), payload)
+            except Exception as e:
+                logger.error("Failed to send push notification to driver: %s", e)
+
     except Exception:
         logger.exception(
             "Socket emit 'match_confirmed' failed for job %s (non-fatal)", job_id
@@ -626,3 +645,128 @@ def list_jobs():
 
     jobs = [_serialize_job(row) for row in rows]
     return jsonify({"count": len(jobs), "jobs": jobs}), 200
+
+@job_bp.route("/<job_id>/rate", methods=["POST"])
+@require_auth
+def rate_job(job_id):
+    job_id = _parse_uuid(job_id, "job_id")
+    if not job_id:
+        return jsonify({"error": "Invalid job_id"}), 400
+
+    if g.auth["role"] != "user":
+        return jsonify({"error": "Only drivers can rate jobs"}), 403
+
+    data = request.get_json(silent=True) or {}
+    rating = data.get("rating")
+    if not rating or not isinstance(rating, int) or rating < 1 or rating > 5:
+        return jsonify({"error": "Rating must be an integer between 1 and 5"}), 400
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT mechanic_id, status, job_rating FROM jobs WHERE job_id = %s AND driver_id = %s;",
+                    (job_id, g.auth["id"]),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return jsonify({"error": "Job not found"}), 404
+
+                mechanic_id, status, current_rating = row
+                if status != "completed":
+                    return jsonify({"error": "Can only rate completed jobs"}), 400
+                if current_rating is not None:
+                    return jsonify({"error": "Job already rated"}), 409
+
+                cur.execute(
+                    "UPDATE jobs SET job_rating = %s WHERE job_id = %s;",
+                    (rating, job_id)
+                )
+
+                cur.execute(
+                    """
+                    INSERT INTO mri_events (mechanic_id, event_type, value)
+                    VALUES (%s, 'RATED', %s);
+                    """,
+                    (mechanic_id, rating),
+                )
+
+                # Update average rating directly
+                cur.execute(
+                    """
+                    UPDATE mechanics
+                    SET rating = (rating * review_count + %s) / (review_count + 1),
+                        review_count = review_count + 1
+                    WHERE mechanic_id = %s;
+                    """,
+                    (rating, mechanic_id)
+                )
+
+                try:
+                    from routes.mri import compute_mri_score
+                    new_score = compute_mri_score(cur, mechanic_id)
+                    cur.execute(
+                        "UPDATE mechanics SET mri_score = %s WHERE mechanic_id = %s;",
+                        (new_score, mechanic_id),
+                    )
+                except Exception:
+                    logger.exception("MRI recomputation failed for mechanic %s", mechanic_id)
+
+    except Exception:
+        return db_error_response()
+
+    return jsonify({"message": "Rating submitted successfully"}), 200
+
+
+@job_bp.route("/<job_id>/messages", methods=["GET"])
+@require_auth
+def get_messages(job_id):
+    job_id = _parse_uuid(job_id, "job_id")
+    if not job_id:
+        return jsonify({"error": "Invalid job_id"}), 400
+
+    try:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                # Check authorization (must be driver or mechanic of the job)
+                cur.execute(
+                    "SELECT driver_id, mechanic_id FROM jobs WHERE job_id = %s;",
+                    (job_id,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return jsonify({"error": "Job not found"}), 404
+                    
+                driver_id, mechanic_id = row
+                entity_id = g.auth["id"]
+                if str(driver_id) != entity_id and str(mechanic_id) != entity_id:
+                    return jsonify({"error": "Not authorized to view messages for this job"}), 403
+
+                cur.execute(
+                    """
+                    SELECT id, sender_id, sender_role, message, sent_at
+                    FROM chat_messages
+                    WHERE job_id = %s
+                    ORDER BY sent_at ASC;
+                    """,
+                    (job_id,)
+                )
+                rows = cur.fetchall()
+
+        messages = [
+            {
+                "id": r[0],
+                "sender_id": str(r[1]),
+                "sender_role": r[2],
+                "message": r[3],
+                "sent_at": r[4].isoformat()
+            }
+            for r in rows
+        ]
+
+        return jsonify({"messages": messages}), 200
+
+    except Exception:
+        logger.exception("Failed to fetch messages for job %s", job_id)
+        return db_error_response()
+

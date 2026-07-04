@@ -23,6 +23,7 @@
 12. [Local Setup Guide](#local-setup-guide)
 13. [Deploying to Render](#deploying-to-render)
 14. [Project Structure](#project-structure)
+15. [Acknowledgements](#acknowledgements)
 
 ---
 
@@ -589,4 +590,14 @@ flat_tyre | battery | engine | overheating | other
 ## Seed Data
 
 20 mechanics across Lucknow zones — 10 real garages (geocoded) fron justdial + 10 dummy entries. 13 are `is_available=TRUE` by default. Run `python seed.py` to populate (idempotent — safe to run multiple times).
+---
+
+## Acknowledgements
+
+The seed data used in this project was compiled from publicly available business listings on [**Justdial**](https://www.justdial.com) , [**Sulekha**](https://www.sulekha.com/lucknow-city) for demonstration purposes during this hackathon.
+
+Business names, locations, and contact information are attributed to their respective owners and Justdial. This project is non-commercial and the data is used solely to showcase the application's functionality. Any inaccuracies or outdated information originate from the source listings.
+
+If this project were to be developed beyond the hackathon prototype, the seed data would be replaced with business-owner onboarding, user submissions, or officially licensed data sources.
+
 ---

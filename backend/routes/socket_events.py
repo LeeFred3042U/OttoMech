@@ -335,3 +335,52 @@ def register_socket_events(socketio: SocketIO) -> None:
         active_jobs[job_id][slot] = request.sid
         logger.debug("rejoin_job: job %s %s → sid %s", job_id, slot, request.sid)
         emit("rejoined", {"job_id": job_id, "role": role})
+
+    # -----------------------------------------------------------------------
+
+    @socketio.on("chat_message")
+    def on_chat_message(data):
+        data = data or {}
+        job_id = data.get("job_id")
+        token = data.get("session_token")
+        message = data.get("message")
+
+        if not job_id or not token or not message:
+            emit("error", {"message": "job_id, session_token, and message are required"})
+            return
+
+        session = validate_token(token)
+        if not session:
+            emit("error", {"message": "Invalid session token"})
+            return
+
+        role = session["role"]
+        entity_id = session["id"]
+
+        try:
+            with get_db() as conn:
+                with conn.cursor() as cur:
+                    # Insert message into DB
+                    cur.execute(
+                        """
+                        INSERT INTO chat_messages (job_id, sender_id, sender_role, message)
+                        VALUES (%s, %s, %s, %s)
+                        RETURNING sent_at;
+                        """,
+                        (job_id, entity_id, role, message)
+                    )
+                    sent_at = cur.fetchone()[0]
+
+            # Broadcast to job room
+            room = f"job_{job_id}"
+            emit("chat_message", {
+                "job_id": job_id,
+                "sender_id": entity_id,
+                "sender_role": role,
+                "message": message,
+                "sent_at": sent_at.isoformat()
+            }, to=room)
+        except Exception:
+            logger.exception("chat_message: DB error for job_id %s", job_id)
+            emit("error", {"message": "Database error saving chat message"})
+

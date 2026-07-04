@@ -16,9 +16,6 @@
         <a href="/"><img src="{{ url_for('static', filename='img/oLogo.svg') }}" alt="OttoMech" class="logo-img"></a>
         <nav class="app-nav">
             {% block nav_links %}
-            <a href="/">Home</a>
-            <a href="/register/user">Sign Up</a>
-            <a href="/login/user" class="nav-cta">Log In</a>
             {% endblock %}
         </nav>
     </header>
@@ -27,10 +24,33 @@
         {% block content %}{% endblock %}
     </main>
 
-    <footer class="app-footer" hidden>
-    </footer>
-
     {% block scripts %}{% endblock %}
     {% block bottom_nav %}{% endblock %}
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script>
+    function handleGoogleCredentialResponse(response, role, dashboardUrl) {
+        var credential = response.credential;
+        
+        fetch('/auth/google', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: credential, role: role })
+        })
+        .then(function(res) { return res.json(); })
+        .then(function(data) {
+            if (data.session_token) {
+                sessionStorage.setItem('otto_token_handoff', data.session_token);
+                sessionStorage.setItem('otto_id_handoff', data.id);
+                sessionStorage.setItem('otto_role_handoff', data.role);
+                window.location.href = dashboardUrl;
+            } else {
+                alert(data.error || "Authentication failed");
+            }
+        })
+        .catch(function(e) {
+            alert("Network error during Google Auth");
+        });
+    }
+    </script>
 </body>
 </html>
