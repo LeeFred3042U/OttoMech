@@ -167,3 +167,8 @@ Re-running `seed.py` uses `ON CONFLICT (phone_number) DO UPDATE` — no duplicat
 - UUID primary keys via `gen_random_uuid()` (pgcrypto).
 - Session tokens are hex strings in an in-memory `_token_store` dict (no JWT).
 - Database errors return `{"error": "Database connection failed"}` without leaking stack traces.
+
+## Security & Data Integrity
+
+- **Secrets Rotation**: If `SECRET_KEY` or `GMAIL_APP_PASSWORD` leak, rotate them immediately by updating the `.env` file (or production environment variables) and restarting the server. No database migration is required. Existing session tokens in the in-memory `_token_store` will be cleared on restart, requiring all users to re-login.
+- **Data-at-Rest Encryption**: Ensure disk encryption is explicitly enabled in your Neon database console. This protects sensitive PII (like plain text phone numbers and emails) from physical or block-level breaches.

@@ -8,7 +8,7 @@
 var OttoMechDashboard = (function () {
     'use strict';
 
-    // ── State ────────────────────────────────────────────────
+    //  State 
     var _token = null;
     var _mechanicId = null;
     var _role = null;
@@ -25,7 +25,7 @@ var OttoMechDashboard = (function () {
     var _driverLat = null;
     var _driverLng = null;
 
-    // ── Leaflet icons ────────────────────────────────────────
+    //  Leaflet icons 
     var _orangeIcon = null;
     var _blueIcon = null;
 
@@ -44,10 +44,10 @@ var OttoMechDashboard = (function () {
         });
     }
 
-    // ── DOM refs ─────────────────────────────────────────────
+    //  DOM refs ─
     var _els = {};
 
-    // ── Init ─────────────────────────────────────────────────
+    //  Init ─
     function init() {
         _token = localStorage.getItem('otto_token_handoff');
         _mechanicId = localStorage.getItem('otto_id_handoff');
@@ -86,108 +86,108 @@ var OttoMechDashboard = (function () {
         fetch('/jobs/' + _activeJobId, {
             headers: { 'Authorization': 'Bearer ' + _token }
         })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.job && data.job.status === 'accepted') {
-                _driverLat = data.job.lat;
-                _driverLng = data.job.lng;
-                
-                var issue = data.job.issue_type || '';
-                document.getElementById('active-issue-type').textContent = issue.replace(/_/g, ' ');
-                
-                var activePhoneLink = document.getElementById('active-phone-link');
-                var activePhoneText = document.getElementById('active-phone-text');
-                if (data.job.driver_phone) {
-                    if (activePhoneLink) {
-                        activePhoneLink.href = 'tel:' + data.job.driver_phone;
-                        activePhoneLink.title = 'Call ' + data.job.driver_phone;
-                    }
-                    if (activePhoneText) {
-                        activePhoneText.textContent = data.job.driver_phone;
-                    }
-                }
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.job && data.job.status === 'accepted') {
+                    _driverLat = data.job.lat;
+                    _driverLng = data.job.lng;
 
-                var activeModel = document.getElementById('active-vehicle-model');
-                if (activeModel) {
-                    activeModel.textContent = data.job.vehicle_model || 'Not provided';
-                }
+                    var issue = data.job.issue_type || '';
+                    document.getElementById('active-issue-type').textContent = issue.replace(/_/g, ' ');
 
-                var photosContainer = document.getElementById('active-photos-container');
-                if (photosContainer) {
-                    if (data.job.photos && data.job.photos.length > 0) {
-                        photosContainer.innerHTML = '';
-                        var photos = [];
-                        try {
-                            photos = JSON.parse(data.job.photos);
-                        } catch (e) {}
-                        
-                        if (photos.length > 0) {
-                            photos.forEach(function(base64) {
-                                var img = document.createElement('img');
-                                img.src = base64;
-                                img.style.width = '60px';
-                                img.style.height = '60px';
-                                img.style.objectFit = 'cover';
-                                img.style.borderRadius = 'var(--radius-sm)';
-                                img.style.cursor = 'pointer';
-                                img.onclick = function() {
-                                    var w = window.open();
-                                    w.document.write('<img src="' + base64 + '" style="max-width:100%;">');
-                                };
-                                photosContainer.appendChild(img);
-                            });
+                    var activePhoneLink = document.getElementById('active-phone-link');
+                    var activePhoneText = document.getElementById('active-phone-text');
+                    if (data.job.driver_phone) {
+                        if (activePhoneLink) {
+                            activePhoneLink.href = 'tel:' + data.job.driver_phone;
+                            activePhoneLink.title = 'Call ' + data.job.driver_phone;
+                        }
+                        if (activePhoneText) {
+                            activePhoneText.textContent = data.job.driver_phone;
+                        }
+                    }
+
+                    var activeModel = document.getElementById('active-vehicle-model');
+                    if (activeModel) {
+                        activeModel.textContent = data.job.vehicle_model || 'Not provided';
+                    }
+
+                    var photosContainer = document.getElementById('active-photos-container');
+                    if (photosContainer) {
+                        if (data.job.photos && data.job.photos.length > 0) {
+                            photosContainer.innerHTML = '';
+                            var photos = [];
+                            try {
+                                photos = JSON.parse(data.job.photos);
+                            } catch (e) { }
+
+                            if (photos.length > 0) {
+                                photos.forEach(function (base64) {
+                                    var img = document.createElement('img');
+                                    img.src = base64;
+                                    img.style.width = '60px';
+                                    img.style.height = '60px';
+                                    img.style.objectFit = 'cover';
+                                    img.style.borderRadius = 'var(--radius-sm)';
+                                    img.style.cursor = 'pointer';
+                                    img.onclick = function () {
+                                        var w = window.open();
+                                        w.document.write('<img src="' + base64 + '" style="max-width:100%;">');
+                                    };
+                                    photosContainer.appendChild(img);
+                                });
+                            } else {
+                                photosContainer.innerHTML = '<span style="color: var(--text-muted);">No photos provided</span>';
+                            }
                         } else {
                             photosContainer.innerHTML = '<span style="color: var(--text-muted);">No photos provided</span>';
                         }
-                    } else {
-                        photosContainer.innerHTML = '<span style="color: var(--text-muted);">No photos provided</span>';
                     }
-                }
 
-                _loadChatMessages();
-                _showPanel('active');
-                _initActiveMap();
-                _startGps();
+                    _loadChatMessages();
+                    _showPanel('active');
+                    _initActiveMap();
+                    _startGps();
 
-                if (_socket && _socket.connected) {
-                    _socket.emit('join_job', { job_id: _activeJobId, role: 'mechanic' });
+                    if (_socket && _socket.connected) {
+                        _socket.emit('join_job', { job_id: _activeJobId, role: 'mechanic' });
+                    }
+                } else {
+                    localStorage.removeItem('otto_active_job_id');
+                    _activeJobId = null;
                 }
-            } else {
-                localStorage.removeItem('otto_active_job_id');
-                _activeJobId = null;
-            }
-        })
-        .catch(function(e) {});
+            })
+            .catch(function (e) { });
     }
 
     function _initPushNotifications() {
         if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
-        
+
         navigator.serviceWorker.register('/static/sw.js')
-        .then(function(swReg) {
-            return fetch('/push/vapid-public-key').then(function(r) { return r.json(); })
-            .then(function(data) {
-                var vapidPublicKey = data.public_key;
-                var convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
-                return swReg.pushManager.subscribe({
-                    userVisibleOnly: true,
-                    applicationServerKey: convertedVapidKey
+            .then(function (swReg) {
+                return fetch('/push/vapid-public-key').then(function (r) { return r.json(); })
+                    .then(function (data) {
+                        var vapidPublicKey = data.public_key;
+                        var convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+                        return swReg.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: convertedVapidKey
+                        });
+                    });
+            })
+            .then(function (subscription) {
+                return fetch('/push/subscribe', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + _token
+                    },
+                    body: JSON.stringify(subscription)
                 });
+            })
+            .catch(function (err) {
+                console.error('Push registration failed:', err);
             });
-        })
-        .then(function(subscription) {
-            return fetch('/push/subscribe', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + _token
-                },
-                body: JSON.stringify(subscription)
-            });
-        })
-        .catch(function(err) {
-            console.error('Push registration failed:', err);
-        });
     }
 
     function urlBase64ToUint8Array(base64String) {
@@ -217,7 +217,7 @@ var OttoMechDashboard = (function () {
         _els.toast = document.getElementById('toast');
     }
 
-    // ── Availability Toggle ──────────────────────────────────
+    //  Availability Toggle 
     function _bindAvailability() {
         _els.togglePill.addEventListener('click', function () {
             _toggleOnline();
@@ -240,37 +240,37 @@ var OttoMechDashboard = (function () {
                 },
                 body: JSON.stringify(payload),
             })
-            .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
-            .then(function (result) {
-                if (btn) btn.disabled = false;
-                if (result.status === 200) {
-                    _isOnline = result.body.is_available;
-                    _updateToggleUI();
+                .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
+                .then(function (result) {
+                    if (btn) btn.disabled = false;
+                    if (result.status === 200) {
+                        _isOnline = result.body.is_available;
+                        _updateToggleUI();
 
-                    if (!_isOnline) {
-                        _stopGps();
-                        _els.panelIncoming.hidden = true;
-                        _els.waitingMsg.hidden = true;
-                    } else {
-                        _els.panelIncoming.hidden = false;
-                        _els.waitingMsg.hidden = false;
-                        if (_idleMap) {
-                            setTimeout(function() { _idleMap.invalidateSize(); }, 100);
-                        }
-                        if (!_activeJobId) {
-                            _startIdleGps();
+                        if (!_isOnline) {
+                            _stopGps();
+                            _els.panelIncoming.hidden = true;
+                            _els.waitingMsg.hidden = true;
+                        } else {
+                            _els.panelIncoming.hidden = false;
+                            _els.waitingMsg.hidden = false;
+                            if (_idleMap) {
+                                setTimeout(function () { _idleMap.invalidateSize(); }, 100);
+                            }
+                            if (!_activeJobId) {
+                                _startIdleGps();
+                            }
                         }
                     }
-                }
-            })
-            .catch(function () {
-                if (btn) btn.disabled = false;
-            });
+                })
+                .catch(function () {
+                    if (btn) btn.disabled = false;
+                });
         }
 
         if (newState && navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
-                function(pos) {
+                function (pos) {
                     payload.lat = pos.coords.latitude;
                     payload.lng = pos.coords.longitude;
                     // Register location with backend for proximity matching
@@ -283,7 +283,7 @@ var OttoMechDashboard = (function () {
                     _initIdleMap(pos.coords.latitude, pos.coords.longitude);
                     sendUpdate();
                 },
-                function() {
+                function () {
                     sendUpdate();
                 },
                 { timeout: 5000, enableHighAccuracy: true }
@@ -305,7 +305,7 @@ var OttoMechDashboard = (function () {
         }
     }
 
-    // ── Socket.IO ────────────────────────────────────────────
+    //  Socket.IO 
     function _connectSocket() {
         _socket = io(location.origin, { auth: { token: _token } });
 
@@ -353,7 +353,7 @@ var OttoMechDashboard = (function () {
         });
     }
 
-    // ── Job Card Rendering ───────────────────────────────────
+    //  Job Card Rendering ─
     function _renderJobCard(data) {
         _els.noJobsMsg.hidden = true;
 
@@ -364,14 +364,14 @@ var OttoMechDashboard = (function () {
         var issueLabel = (data.issue_type || 'unknown').replace(/_/g, ' ');
         card.innerHTML =
             '<div class="job-card-header">' +
-                '<span class="job-type">' + _escapeHtml(issueLabel) + '</span>' +
-                '<span class="job-distance">📍 Nearby</span>' +
+            '<span class="job-type">' + _escapeHtml(issueLabel) + '</span>' +
+            '<span class="job-distance">📍 Nearby</span>' +
             '</div>' +
             '<div class="map-thumbnail" id="map-job-' + data.job_id + '"></div>' +
             '<div class="job-card-actions">' +
-                '<button class="btn-accept" data-job-id="' + data.job_id +
-                    '" data-lat="' + (data.driver_lat || 0) +
-                    '" data-lng="' + (data.driver_lng || 0) + '">Accept</button>' +
+            '<button class="btn-accept" data-job-id="' + data.job_id +
+            '" data-lat="' + (data.driver_lat || 0) +
+            '" data-lng="' + (data.driver_lng || 0) + '">Accept</button>' +
             '</div>';
 
         _els.jobCards.appendChild(card);
@@ -404,7 +404,7 @@ var OttoMechDashboard = (function () {
         });
     }
 
-    // ── Accept Job ───────────────────────────────────────────
+    //  Accept Job ─
     function _acceptJob(jobId, driverLat, driverLng) {
         fetch('/jobs/' + jobId + '/accept', {
             method: 'PATCH',
@@ -414,88 +414,88 @@ var OttoMechDashboard = (function () {
             },
             body: JSON.stringify({ mechanic_id: _mechanicId }),
         })
-        .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
-        .then(function (result) {
-            if (result.status === 200) {
-                _activeJobId = jobId;
-                localStorage.setItem('otto_active_job_id', _activeJobId);
-                _driverLat = driverLat;
-                _driverLng = driverLng;
+            .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
+            .then(function (result) {
+                if (result.status === 200) {
+                    _activeJobId = jobId;
+                    localStorage.setItem('otto_active_job_id', _activeJobId);
+                    _driverLat = driverLat;
+                    _driverLng = driverLng;
 
-                // Join job room
-                if (_socket && _socket.connected) {
-                    _socket.emit('join_job', { job_id: jobId, role: 'mechanic' });
-                }
-
-                // Set issue type display
-                var issue = result.body.job ? result.body.job.issue_type : '';
-                document.getElementById('active-issue-type').textContent =
-                    (issue || 'unknown').replace(/_/g, ' ');
-
-                var activePhoneLink = document.getElementById('active-phone-link');
-                var activePhoneText = document.getElementById('active-phone-text');
-                if (result.body.job && result.body.job.driver_phone) {
-                    if (activePhoneLink) {
-                        activePhoneLink.href = 'tel:' + result.body.job.driver_phone;
-                        activePhoneLink.title = 'Call ' + result.body.job.driver_phone;
+                    // Join job room
+                    if (_socket && _socket.connected) {
+                        _socket.emit('join_job', { job_id: jobId, role: 'mechanic' });
                     }
-                    if (activePhoneText) {
-                        activePhoneText.textContent = result.body.job.driver_phone;
+
+                    // Set issue type display
+                    var issue = result.body.job ? result.body.job.issue_type : '';
+                    document.getElementById('active-issue-type').textContent =
+                        (issue || 'unknown').replace(/_/g, ' ');
+
+                    var activePhoneLink = document.getElementById('active-phone-link');
+                    var activePhoneText = document.getElementById('active-phone-text');
+                    if (result.body.job && result.body.job.driver_phone) {
+                        if (activePhoneLink) {
+                            activePhoneLink.href = 'tel:' + result.body.job.driver_phone;
+                            activePhoneLink.title = 'Call ' + result.body.job.driver_phone;
+                        }
+                        if (activePhoneText) {
+                            activePhoneText.textContent = result.body.job.driver_phone;
+                        }
                     }
-                }
 
-                var activeModel = document.getElementById('active-vehicle-model');
-                if (activeModel && result.body.job) {
-                    activeModel.textContent = result.body.job.vehicle_model || 'Not provided';
-                }
+                    var activeModel = document.getElementById('active-vehicle-model');
+                    if (activeModel && result.body.job) {
+                        activeModel.textContent = result.body.job.vehicle_model || 'Not provided';
+                    }
 
-                var photosContainer = document.getElementById('active-photos-container');
-                if (photosContainer && result.body.job) {
-                    if (result.body.job.photos && result.body.job.photos.length > 0) {
-                        photosContainer.innerHTML = '';
-                        var photos = [];
-                        try {
-                            photos = JSON.parse(result.body.job.photos);
-                        } catch (e) {}
-                        
-                        if (photos.length > 0) {
-                            photos.forEach(function(base64) {
-                                var img = document.createElement('img');
-                                img.src = base64;
-                                img.style.width = '60px';
-                                img.style.height = '60px';
-                                img.style.objectFit = 'cover';
-                                img.style.borderRadius = 'var(--radius-sm)';
-                                img.style.cursor = 'pointer';
-                                img.onclick = function() {
-                                    var w = window.open();
-                                    w.document.write('<img src="' + base64 + '" style="max-width:100%;">');
-                                };
-                                photosContainer.appendChild(img);
-                            });
+                    var photosContainer = document.getElementById('active-photos-container');
+                    if (photosContainer && result.body.job) {
+                        if (result.body.job.photos && result.body.job.photos.length > 0) {
+                            photosContainer.innerHTML = '';
+                            var photos = [];
+                            try {
+                                photos = JSON.parse(result.body.job.photos);
+                            } catch (e) { }
+
+                            if (photos.length > 0) {
+                                photos.forEach(function (base64) {
+                                    var img = document.createElement('img');
+                                    img.src = base64;
+                                    img.style.width = '60px';
+                                    img.style.height = '60px';
+                                    img.style.objectFit = 'cover';
+                                    img.style.borderRadius = 'var(--radius-sm)';
+                                    img.style.cursor = 'pointer';
+                                    img.onclick = function () {
+                                        var w = window.open();
+                                        w.document.write('<img src="' + base64 + '" style="max-width:100%;">');
+                                    };
+                                    photosContainer.appendChild(img);
+                                });
+                            } else {
+                                photosContainer.innerHTML = '<span style="color: var(--text-muted);">No photos provided</span>';
+                            }
                         } else {
                             photosContainer.innerHTML = '<span style="color: var(--text-muted);">No photos provided</span>';
                         }
-                    } else {
-                        photosContainer.innerHTML = '<span style="color: var(--text-muted);">No photos provided</span>';
                     }
-                }
 
-                _loadChatMessages();
-                _showPanel('active');
-                _initActiveMap();
-                _startGps();
-            } else if (result.status === 409) {
-                // Job taken by another mechanic
-                _showToast('Job taken by another mechanic');
-                var card = document.querySelector('[data-job-id="' + jobId + '"]');
-                if (card) card.remove();
-            }
-        })
-        .catch(function () {});
+                    _loadChatMessages();
+                    _showPanel('active');
+                    _initActiveMap();
+                    _startGps();
+                } else if (result.status === 409) {
+                    // Job taken by another mechanic
+                    _showToast('Job taken by another mechanic');
+                    var card = document.querySelector('[data-job-id="' + jobId + '"]');
+                    if (card) card.remove();
+                }
+            })
+            .catch(function () { });
     }
 
-    // ── Active Job Map ───────────────────────────────────────
+    //  Active Job Map ─
     function _initActiveMap() {
         if (_activeMap) {
             _activeMap.remove();
@@ -511,16 +511,16 @@ var OttoMechDashboard = (function () {
             attribution: '&copy; OpenStreetMap contributors',
         }).addTo(_activeMap);
         _driverMarker = L.marker([lat, lng], { icon: _orangeIcon }).addTo(_activeMap);
-        setTimeout(function() { if (_activeMap) _activeMap.invalidateSize(); }, 100);
+        setTimeout(function () { if (_activeMap) _activeMap.invalidateSize(); }, 100);
     }
 
-    // ── Idle Map (while online, waiting for jobs) ────────────────
+    //  Idle Map (while online, waiting for jobs) 
     function _initIdleMap(lat, lng) {
         var container = document.getElementById('map-idle');
         if (!container) return;
         if (_idleMap) {
             _idleMap.setView([lat, lng], 14);
-            setTimeout(function() { _idleMap.invalidateSize(); }, 100);
+            setTimeout(function () { _idleMap.invalidateSize(); }, 100);
             return;
         }
         _idleMap = L.map(container, { zoomControl: false }).setView([lat, lng], 14);
@@ -528,27 +528,27 @@ var OttoMechDashboard = (function () {
             attribution: '&copy; OpenStreetMap contributors',
         }).addTo(_idleMap);
         L.marker([lat, lng], { icon: _blueIcon }).addTo(_idleMap);
-        setTimeout(function() { if (_idleMap) _idleMap.invalidateSize(); }, 100);
+        setTimeout(function () { if (_idleMap) _idleMap.invalidateSize(); }, 100);
     }
 
-    // ── Invalidate all active Leaflet maps ───────────────────────
+    //  Invalidate all active Leaflet maps ─
     function _invalidateMaps() {
         if (_activeMap) _activeMap.invalidateSize();
-        if (_idleMap)   _idleMap.invalidateSize();
+        if (_idleMap) _idleMap.invalidateSize();
     }
 
-    // ── Idle GPS Emit Loop (No Job) ──────────────────────────
+    //  Idle GPS Emit Loop (No Job) 
     function _startIdleGps() {
         _stopGps(); // clear any existing interval
         _gpsInterval = setInterval(function () {
             if (_activeJobId || !_isOnline) { _stopGps(); return; }
             if (!navigator.geolocation) return;
-            
+
             navigator.geolocation.getCurrentPosition(
-                function(pos) {
+                function (pos) {
                     var lat = pos.coords.latitude;
                     var lng = pos.coords.longitude;
-                    
+
                     // Just update DB in the background
                     fetch('/mechanics/' + _mechanicId + '/availability', {
                         method: 'PATCH',
@@ -556,20 +556,20 @@ var OttoMechDashboard = (function () {
                             'Content-Type': 'application/json',
                             'Authorization': 'Bearer ' + _token,
                         },
-                        body: JSON.stringify({ 
+                        body: JSON.stringify({
                             is_available: true,
                             lat: lat,
-                            lng: lng 
+                            lng: lng
                         })
-                    }).catch(function(){});
+                    }).catch(function () { });
                 },
-                function() {},
+                function () { },
                 { timeout: 5000, enableHighAccuracy: true }
             );
         }, 30000); // every 30s while idle
     }
 
-    // ── GPS Emit Loop (Active Job) ───────────────────────────
+    //  GPS Emit Loop (Active Job) ─
     function _startGps() {
         _stopGps(); // clear any existing interval
         _gpsInterval = setInterval(function () {
@@ -613,7 +613,7 @@ var OttoMechDashboard = (function () {
         }
     }
 
-    // ── Mark Complete ────────────────────────────────────────
+    //  Mark Complete 
     function _bindComplete() {
         document.getElementById('btn-complete').addEventListener('click', function () {
             var cashInput = document.getElementById('cash-amount');
@@ -637,23 +637,23 @@ var OttoMechDashboard = (function () {
                 },
                 body: JSON.stringify({ cash_amount: cashAmount, warranty_days: 0 }),
             })
-            .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
-            .then(function (result) {
-                if (result.status === 200) {
-                    _stopGps();
-                    _activeJobId = null;
-                    _showPanel('done');
-                }
-            })
-            .catch(function () {});
+                .then(function (r) { return r.json().then(function (b) { return { status: r.status, body: b }; }); })
+                .then(function (result) {
+                    if (result.status === 200) {
+                        _stopGps();
+                        _activeJobId = null;
+                        _showPanel('done');
+                    }
+                })
+                .catch(function () { });
         });
     }
 
-    // ── Back Online ──────────────────────────────────────────
+    //  Back Online 
     function _bindBackOnline() {
         document.getElementById('btn-back-online').addEventListener('click', function () {
             // Bug #6 fix: destroy orphaned mini-map Leaflet instances before clearing DOM
-            _miniMaps.forEach(function(m) { try { m.remove(); } catch(e) {} });
+            _miniMaps.forEach(function (m) { try { m.remove(); } catch (e) { } });
             _miniMaps = [];
             _showPanel('status');
             _els.panelIncoming.hidden = !_isOnline;
@@ -663,7 +663,7 @@ var OttoMechDashboard = (function () {
         });
     }
 
-    // ── Panel Management ─────────────────────────────────────
+    //  Panel Management ─
     function _showPanel(panel) {
         _currentStep = panel;
         _els.panelStatus.hidden = panel !== 'status';
@@ -675,7 +675,7 @@ var OttoMechDashboard = (function () {
         if (panel === 'status' && _isOnline) {
             _els.panelIncoming.hidden = false;
             if (_idleMap) {
-                setTimeout(function() { _idleMap.invalidateSize(); }, 100);
+                setTimeout(function () { _idleMap.invalidateSize(); }, 100);
             }
         }
 
@@ -683,7 +683,7 @@ var OttoMechDashboard = (function () {
         setTimeout(_invalidateMaps, 50);
     }
 
-    // ── Toast ────────────────────────────────────────────────
+    //  Toast 
     function _showToast(msg) {
         _els.toast.textContent = msg;
         _els.toast.hidden = false;
@@ -692,14 +692,14 @@ var OttoMechDashboard = (function () {
         }, 3000);
     }
 
-    // ── HTML escaping ────────────────────────────────────────
+    //  HTML escaping 
     function _escapeHtml(str) {
-                var div = document.createElement('div');
+        var div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
     }
 
-    // ── Navigation & Tabs ────────────────────────────────────
+    //  Navigation & Tabs 
     function _bindNavigation() {
         var tabJobs = document.getElementById('tab-jobs');
         var tabEarnings = document.getElementById('tab-earnings');
@@ -742,13 +742,13 @@ var OttoMechDashboard = (function () {
             }
         }
 
-        tabJobs.addEventListener('click', function() { switchTab('jobs'); });
-        tabEarnings.addEventListener('click', function() { switchTab('earnings'); });
-        tabAccount.addEventListener('click', function() { switchTab('account'); });
+        tabJobs.addEventListener('click', function () { switchTab('jobs'); });
+        tabEarnings.addEventListener('click', function () { switchTab('earnings'); });
+        tabAccount.addEventListener('click', function () { switchTab('account'); });
 
         var btnLogout = document.getElementById('btn-logout');
         if (btnLogout) {
-            btnLogout.addEventListener('click', function() {
+            btnLogout.addEventListener('click', function () {
                 localStorage.removeItem('otto_token_handoff');
                 localStorage.removeItem('otto_id_handoff');
                 localStorage.removeItem('otto_role_handoff');
@@ -761,48 +761,48 @@ var OttoMechDashboard = (function () {
         fetch('/auth/me', {
             headers: { 'Authorization': 'Bearer ' + _token }
         })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.profile) {
-                document.getElementById('acct-name').textContent = data.profile.first_name + (data.profile.last_name ? ' ' + data.profile.last_name : '');
-                document.getElementById('acct-workshop').textContent = data.profile.workshop_name || '—';
-                document.getElementById('acct-email').textContent = data.profile.email;
-                document.getElementById('acct-status').textContent = data.profile.status;
-                
-                var badge = document.getElementById('acct-email-badge');
-                if (badge) badge.style.display = data.profile.email_verified ? 'none' : 'inline-block';
-                
-                var setPwdBtn = document.getElementById('btn-set-password');
-                if (setPwdBtn) {
-                    setPwdBtn.style.display = (data.profile.status === 'PENDING_PASSWORD' || !data.profile.password_hash_exists) ? 'block' : 'none';
-                    setPwdBtn.onclick = function() {
-                        var loadEl = setPwdBtn.querySelector('.btn-loading');
-                        var textEl = setPwdBtn.querySelector('.btn-text');
-                        if (textEl) textEl.hidden = true;
-                        if (loadEl) loadEl.hidden = false;
-                        
-                        fetch('/auth/login/mechanic/request-setup-link', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email: data.profile.email })
-                        }).then(function() {
-                            if (textEl) textEl.hidden = false;
-                            if (loadEl) loadEl.hidden = true;
-                            alert('Check terminal for the setup link!');
-                        }).catch(function() {
-                            if (textEl) textEl.hidden = false;
-                            if (loadEl) loadEl.hidden = true;
-                        });
-                    };
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.profile) {
+                    document.getElementById('acct-name').textContent = data.profile.first_name + (data.profile.last_name ? ' ' + data.profile.last_name : '');
+                    document.getElementById('acct-workshop').textContent = data.profile.workshop_name || '—';
+                    document.getElementById('acct-email').textContent = data.profile.email;
+                    document.getElementById('acct-status').textContent = data.profile.status;
+
+                    var badge = document.getElementById('acct-email-badge');
+                    if (badge) badge.style.display = data.profile.email_verified ? 'none' : 'inline-block';
+
+                    var setPwdBtn = document.getElementById('btn-set-password');
+                    if (setPwdBtn) {
+                        setPwdBtn.style.display = (data.profile.status === 'PENDING_PASSWORD' || !data.profile.password_hash_exists) ? 'block' : 'none';
+                        setPwdBtn.onclick = function () {
+                            var loadEl = setPwdBtn.querySelector('.btn-loading');
+                            var textEl = setPwdBtn.querySelector('.btn-text');
+                            if (textEl) textEl.hidden = true;
+                            if (loadEl) loadEl.hidden = false;
+
+                            fetch('/auth/login/mechanic/request-setup-link', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ email: data.profile.email })
+                            }).then(function () {
+                                if (textEl) textEl.hidden = false;
+                                if (loadEl) loadEl.hidden = true;
+                                alert('Check terminal for the setup link!');
+                            }).catch(function () {
+                                if (textEl) textEl.hidden = false;
+                                if (loadEl) loadEl.hidden = true;
+                            });
+                        };
+                    }
                 }
-            }
-        })
-        .catch(function(err) {
-            document.getElementById('acct-status').textContent = 'Error loading account';
-        });
+            })
+            .catch(function (err) {
+                document.getElementById('acct-status').textContent = 'Error loading account';
+            });
     }
 
-    // ── Earnings Logic ───────────────────────────────────────
+    //  Earnings Logic ─
     function _fetchEarnings() {
         var panelEarnings = document.getElementById('panel-earnings');
         if (!panelEarnings) return;
@@ -812,49 +812,49 @@ var OttoMechDashboard = (function () {
         fetch('/mechanics/' + _mechanicId + '/earnings', {
             headers: { 'Authorization': 'Bearer ' + _token }
         })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.error) {
-                panelEarnings.innerHTML = '<p class="error-msg">Failed to load earnings: ' + data.error + '</p>';
-                return;
-            }
-            
-            var html = '<div class="card"><h1>Earnings Dashboard</h1>';
-            html += '<h2>Total Earnings: ₹' + (data.total_earnings || 0).toFixed(2) + '</h2>';
-            
-            if (!data.jobs || data.jobs.length === 0) {
-                html += '<p class="empty-state">No completed jobs yet.</p>';
-            } else {
-                html += '<div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">';
-                data.jobs.forEach(function(job) {
-                    var d = new Date(job.completed_at);
-                    html += '<div style="padding: 1rem; border: 1px solid var(--gray-200); border-radius: var(--radius-md); display: flex; justify-content: space-between;">';
-                    html += '<div><strong>' + (job.issue_type || 'Job').replace(/_/g, ' ') + '</strong><br>';
-                    html += '<small class="gray-text">' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString() + '</small></div>';
-                    html += '<div style="font-weight: 600;">₹' + job.cash_amount.toFixed(2) + '</div>';
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.error) {
+                    panelEarnings.innerHTML = '<p class="error-msg">Failed to load earnings: ' + data.error + '</p>';
+                    return;
+                }
+
+                var html = '<div class="card"><h1>Earnings Dashboard</h1>';
+                html += '<h2>Total Earnings: ₹' + (data.total_earnings || 0).toFixed(2) + '</h2>';
+
+                if (!data.jobs || data.jobs.length === 0) {
+                    html += '<p class="empty-state">No completed jobs yet.</p>';
+                } else {
+                    html += '<div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">';
+                    data.jobs.forEach(function (job) {
+                        var d = new Date(job.completed_at);
+                        html += '<div style="padding: 1rem; border: 1px solid var(--gray-200); border-radius: var(--radius-md); display: flex; justify-content: space-between;">';
+                        html += '<div><strong>' + (job.issue_type || 'Job').replace(/_/g, ' ') + '</strong><br>';
+                        html += '<small class="gray-text">' + d.toLocaleDateString() + ' ' + d.toLocaleTimeString() + '</small></div>';
+                        html += '<div style="font-weight: 600;">₹' + job.cash_amount.toFixed(2) + '</div>';
+                        html += '</div>';
+                    });
                     html += '</div>';
-                });
+                }
+
                 html += '</div>';
-            }
-            
-            html += '</div>';
-            panelEarnings.innerHTML = html;
-        })
-        .catch(function(err) {
-            panelEarnings.innerHTML = '<p class="error-msg">Failed to load earnings.</p>';
-        });
+                panelEarnings.innerHTML = html;
+            })
+            .catch(function (err) {
+                panelEarnings.innerHTML = '<p class="error-msg">Failed to load earnings.</p>';
+            });
     }
 
-    // ── Chat Logic ───────────────────────────────────────────
+    //  Chat Logic ─
     function _bindChat() {
         var btnSend = document.getElementById('btn-send-chat');
         var inputChat = document.getElementById('chat-input');
         if (!btnSend || !inputChat) return;
 
-        btnSend.addEventListener('click', function() {
+        btnSend.addEventListener('click', function () {
             var msg = inputChat.value.trim();
             if (!msg || !_activeJobId || !_socket) return;
-            
+
             _socket.emit('chat_message', {
                 session_token: _token,
                 job_id: _activeJobId,
@@ -863,7 +863,7 @@ var OttoMechDashboard = (function () {
             inputChat.value = '';
         });
 
-        inputChat.addEventListener('keypress', function(e) {
+        inputChat.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 btnSend.click();
             }
@@ -873,18 +873,18 @@ var OttoMechDashboard = (function () {
     function _loadChatMessages() {
         var container = document.getElementById('chat-messages');
         if (!container || !_activeJobId) return;
-        
+
         container.innerHTML = '';
         fetch('/jobs/' + _activeJobId + '/messages', {
             headers: { 'Authorization': 'Bearer ' + _token }
         })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.messages) {
-                data.messages.forEach(_appendChatMessage);
-            }
-        })
-        .catch(function(err) { console.error('Failed to load chat:', err); });
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.messages) {
+                    data.messages.forEach(_appendChatMessage);
+                }
+            })
+            .catch(function (err) { console.error('Failed to load chat:', err); });
     }
 
     function _appendChatMessage(data) {
@@ -900,21 +900,21 @@ var OttoMechDashboard = (function () {
         div.style.background = isMe ? 'var(--brand-darkest)' : 'var(--bg-surface)';
         div.style.color = isMe ? '#fff' : 'var(--text-primary)';
         div.style.border = isMe ? 'none' : '1px solid var(--border-subtle)';
-        
+
         div.textContent = data.message;
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
     }
 
-    // ── Auto-init on DOMContentLoaded ────────────────────────
+    //  Auto-init on DOMContentLoaded 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
         init();
     }
-    
+
     // Automatically go online after short delay if offline
-    setTimeout(function() {
+    setTimeout(function () {
         if (!_isOnline) {
             _toggleOnline();
         }

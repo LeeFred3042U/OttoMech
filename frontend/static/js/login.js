@@ -8,20 +8,20 @@
 var OttoLogin = (function () {
     'use strict';
 
-    // ── State (memory only) ──────────────────────────────────
+    //  State (memory only) 
     var _email = '';
     var _role = '';
     var _dashboardUrl = '';
     var _countdownInterval = null;
     var _inflight = false;
 
-    // ── DOM refs ─────────────────────────────────────────────
+    //  DOM refs ─
     var _els = {};
 
-    // ── Email regex ──────────────────────────────────────────
+    //  Email regex 
     var _emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    // ── Public: init ─────────────────────────────────────────
+    //  Public: init ─
     function init(cfg) {
         _role = cfg.role;
         _dashboardUrl = cfg.dashboardUrl;
@@ -82,26 +82,26 @@ var OttoLogin = (function () {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: _email, role: role }),
                 })
-                .then(function (res) { return res.json(); })
-                .then(function (body) {
-                    resendLink.textContent = 'Code resent!';
-                    if (body.expires_in_seconds) {
-                        _startCountdown(body.expires_in_seconds);
-                    }
-                    setTimeout(function () {
-                        resendLink.textContent = 'Resend code';
+                    .then(function (res) { return res.json(); })
+                    .then(function (body) {
+                        resendLink.textContent = 'Code resent!';
+                        if (body.expires_in_seconds) {
+                            _startCountdown(body.expires_in_seconds);
+                        }
+                        setTimeout(function () {
+                            resendLink.textContent = 'Resend code';
+                            resendLink.style.pointerEvents = '';
+                        }, 3000);
+                    })
+                    .catch(function () {
+                        resendLink.textContent = 'Failed — try again';
                         resendLink.style.pointerEvents = '';
-                    }, 3000);
-                })
-                .catch(function () {
-                    resendLink.textContent = 'Failed — try again';
-                    resendLink.style.pointerEvents = '';
-                });
+                    });
             });
         }
     }
 
-    // ── Login submit (send OTP) ──────────────────────────────
+    //  Login submit (send OTP) 
     function _handleLogin(cfg) {
         _clearAllErrors();
 
@@ -148,7 +148,7 @@ var OttoLogin = (function () {
         });
     }
 
-    // ── Password submit ──────────────────────────────────────
+    //  Password submit 
     function _handlePasswordLogin(cfg) {
         _clearError(_els.passwordError);
         var pwdEl = document.getElementById('password');
@@ -169,18 +169,18 @@ var OttoLogin = (function () {
         });
     }
 
-    // ── Request Setup Link ───────────────────────────────────
+    //  Request Setup Link ─
     function _handleRequestSetup(cfg) {
         _clearError(_els.setupError);
         var payload = { email: _email };
-        
+
         _postJSON('/auth/login/user/request-setup-link', payload, _els.btnRequestSetup, _els.setupError, function (body) {
             _els.btnRequestSetup.hidden = true;
             document.getElementById('setup-success').style.display = 'block';
         });
     }
 
-    // ── OTP submit ───────────────────────────────────────────
+    //  OTP submit ─
     function _handleOtp(cfg) {
         _clearError(_els.otpError);
         var otpEl = document.getElementById('otp');
@@ -210,7 +210,7 @@ var OttoLogin = (function () {
         });
     }
 
-    // ── Fetch helper ─────────────────────────────────────────
+    //  Fetch helper ─
     function _postJSON(url, data, btn, errorEl, onSuccess) {
         if (_inflight) return;
         _inflight = true;
@@ -222,30 +222,30 @@ var OttoLogin = (function () {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         })
-        .then(function (res) {
-            return res.json().then(function (body) {
-                return { status: res.status, body: body };
-            });
-        })
-        .then(function (result) {
-            _inflight = false;
-            _setBtnLoading(btn, false);
+            .then(function (res) {
+                return res.json().then(function (body) {
+                    return { status: res.status, body: body };
+                });
+            })
+            .then(function (result) {
+                _inflight = false;
+                _setBtnLoading(btn, false);
 
-            if (result.status >= 200 && result.status < 300) {
-                onSuccess(result.body);
-            } else {
-                var msg = result.body.error || 'Unknown error';
-                _showFormError(errorEl, msg, false);
-            }
-        })
-        .catch(function () {
-            _inflight = false;
-            _setBtnLoading(btn, false);
-            _showFormError(errorEl, "Can\u2019t reach the server \u2014 check your connection or try again.", true);
-        });
+                if (result.status >= 200 && result.status < 300) {
+                    onSuccess(result.body);
+                } else {
+                    var msg = result.body.error || 'Unknown error';
+                    _showFormError(errorEl, msg, false);
+                }
+            })
+            .catch(function () {
+                _inflight = false;
+                _setBtnLoading(btn, false);
+                _showFormError(errorEl, "Can\u2019t reach the server \u2014 check your connection or try again.", true);
+            });
     }
 
-    // ── Countdown timer ──────────────────────────────────────
+    //  Countdown timer 
     function _startCountdown(seconds) {
         _stopCountdown();
         var remaining = seconds;
@@ -276,7 +276,7 @@ var OttoLogin = (function () {
         _els.countdown.classList.remove('expired');
     }
 
-    // ── Email warning ────────────────────────────────────────
+    //  Email warning 
     function _showEmailWarning(msg) {
         var el = document.getElementById('otp-error');
         if (el) {
@@ -285,7 +285,7 @@ var OttoLogin = (function () {
         }
     }
 
-    // ── Error display helpers ────────────────────────────────
+    //  Error display helpers 
     function _showFieldError(fieldId, msg) {
         var errEl = document.getElementById('err-' + fieldId);
         if (errEl) errEl.textContent = msg;
@@ -320,7 +320,7 @@ var OttoLogin = (function () {
         _clearError(_els.otpError);
     }
 
-    // ── Button loading state ─────────────────────────────────
+    //  Button loading state ─
     function _setBtnLoading(btn, loading) {
         btn.disabled = loading;
         var textEl = btn.querySelector('.btn-text');
@@ -329,6 +329,6 @@ var OttoLogin = (function () {
         if (loadEl) loadEl.hidden = !loading;
     }
 
-    // ── Public API ───────────────────────────────────────────
+    //  Public API ─
     return { init: init };
 })();

@@ -283,7 +283,40 @@ def seed():
             cur.execute("SELECT COUNT(*) FROM mechanics WHERE is_available = TRUE;")
             available = cur.fetchone()[0]
 
-    print(f"{total} mechanics seeded ({available} available)")
+            # Seed a dummy user and a dummy job with idempotency key
+            cur.execute(
+                """
+                INSERT INTO users (
+                    first_name, last_name, display_name, email,
+                    phone_number, country, status
+                )
+                VALUES (
+                    'Test', 'Driver', 'Test Driver', 'testdriver@ottomech.local',
+                    '+919876543210', 'IN', 'ACTIVE'
+                )
+                ON CONFLICT (phone_number) DO UPDATE SET
+                    first_name = EXCLUDED.first_name
+                RETURNING user_id;
+                """
+            )
+            user_id = cur.fetchone()[0]
+
+            cur.execute(
+                """
+                INSERT INTO jobs (
+                    driver_id, issue_type, status, lat, lng,
+                    vehicle_model, idempotency_key
+                )
+                VALUES (
+                    %s, 'Car won''t start', 'pending', 26.8467, 80.9462,
+                    'Honda City', gen_random_uuid()
+                )
+                ON CONFLICT DO NOTHING;
+                """,
+                (user_id,)
+            )
+
+    print(f"{total} mechanics seeded ({available} available). Seeded 1 dummy user and 1 dummy job with idempotency key.")
 
 
 if __name__ == "__main__":

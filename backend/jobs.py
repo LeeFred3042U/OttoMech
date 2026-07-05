@@ -37,6 +37,38 @@ def _run_scheduled_jobs():
                         )
                         
                         print(f"[BACKGROUND JOB] Deadline passed for {email}. Password setup link: /set-password?token={token}")
+                    
+                    # 1. Guard against orphaned/stuck jobs (Data Integrity #1)
+                    # Find jobs accepted for > 30 mins with no completed_at
+                    cur.execute("""
+                        SELECT job_id, mechanic_id 
+                        FROM jobs 
+                        WHERE status = 'accepted' 
+                          AND accepted_at <= %s - interval '30 minutes';
+                    """, (now,))
+                    
+                    stuck_jobs = cur.fetchall()
+                    for job_id, mechanic_id in stuck_jobs:
+                        cur.execute("UPDATE jobs SET status = 'cancelled' WHERE job_id = %s;", (job_id,))
+                        cur.execute("""
+                            INSERT INTO job_events (job_id, event_type, actor_id, actor_role)
+                            VALUES (%s, 'cancelled', %s, 'system')
+                        """, (job_id, mechanic_id))
+                        print(f"[BACKGROUND JOB] Auto-cancelled stuck job {job_id}")
+
+                    # 3. Close the job_broadcasts consistency loop (Data Integrity #3)
+                    # Set responded=TRUE for broadcast rows of completed/cancelled jobs
+                    cur.execute("""
+                        UPDATE job_broadcasts jb
+                        SET responded = TRUE
+                        FROM jobs j
+                        WHERE jb.job_id = j.job_id
+                          AND j.status IN ('completed', 'cancelled')
+                          AND jb.responded = FALSE;
+                    """)
+                    if cur.rowcount > 0:
+                        print(f"[BACKGROUND JOB] Closed {cur.rowcount} inconsistent broadcast rows")
+
         except Exception as e:
             print(f"[BACKGROUND JOB ERROR] {e}")
             

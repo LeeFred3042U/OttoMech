@@ -25,24 +25,24 @@ python app.py
 
 ```
 frontend/
-├── templates/          # Jinja2 templates — rendered by Flask
-│   ├── base.html       # Shared layout (header, footer, CSS/JS links)
-│   ├── register_user.html
-│   ├── register_mechanic.html
-│   ├── login.html
-│   ├── dashboard_user.html
-│   └── dashboard_mechanic.html
-├── static/
-│   ├── css/
-│   │   └── base.css    # Mobile-first, warm automotive design system
-│   ├── js/
-│   │   ├── register.js # Registration + OTP logic
-│   │   ├── login.js    # Login logic
-│   │   ├── dashboard_user.js
-│   │   └── dashboard_mechanic.js
-│   └── img/            # SVGs and images (oLogo.svg, etc)
-├── .gitignore
-└── README.md           # This file
+├ templates/          # Jinja2 templates — rendered by Flask
+│   ├ base.html       # Shared layout (header, footer, CSS/JS links)
+│   ├ register_user.html
+│   ├ register_mechanic.html
+│   ├ login.html
+│   ├ dashboard_user.html
+│   └ dashboard_mechanic.html
+├ static/
+│   ├ css/
+│   │   └ base.css    # Mobile-first, warm automotive design system
+│   ├ js/
+│   │   ├ register.js # Registration + OTP logic
+│   │   ├ login.js    # Login logic
+│   │   ├ dashboard_user.js
+│   │   └ dashboard_mechanic.js
+│   └ img/            # SVGs and images (oLogo.svg, etc)
+├ .gitignore
+└ README.md           # This file
 ```
 
 ## Design

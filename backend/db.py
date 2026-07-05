@@ -15,6 +15,7 @@ DROP TABLE IF EXISTS chat_messages CASCADE;
 DROP TABLE IF EXISTS receipts CASCADE;
 DROP TABLE IF EXISTS mri_events CASCADE;
 DROP TABLE IF EXISTS job_broadcasts CASCADE;
+DROP TABLE IF EXISTS job_events CASCADE;
 DROP TABLE IF EXISTS jobs CASCADE;
 DROP TABLE IF EXISTS otp_store CASCADE;
 DROP TABLE IF EXISTS mechanics CASCADE;
@@ -91,8 +92,8 @@ CREATE TABLE otp_store (
 
 CREATE TABLE jobs (
     job_id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    driver_id        UUID REFERENCES users(user_id),
-    mechanic_id      UUID REFERENCES mechanics(mechanic_id),
+    driver_id        UUID REFERENCES users(user_id) ON DELETE RESTRICT,
+    mechanic_id      UUID REFERENCES mechanics(mechanic_id) ON DELETE RESTRICT,
     issue_type       TEXT NOT NULL,
     vehicle_model    VARCHAR(100),
     status           VARCHAR(30) DEFAULT 'pending',
@@ -103,8 +104,22 @@ CREATE TABLE jobs (
     created_at       TIMESTAMPTZ DEFAULT NOW(),
     accepted_at      TIMESTAMPTZ,
     completed_at     TIMESTAMPTZ,
-    job_rating       INT
+    job_rating       INT,
+    idempotency_key  UUID UNIQUE,
+    CONSTRAINT chk_cash_nonneg CHECK (cash_amount >= 0),
+    CONSTRAINT chk_status_valid CHECK (status IN ('pending', 'accepted', 'in_progress', 'completed', 'cancelled')),
+    CONSTRAINT chk_accepted_has_mechanic CHECK (status IN ('pending', 'cancelled') OR mechanic_id IS NOT NULL)
 );
+
+CREATE TABLE job_events (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    job_id        UUID REFERENCES jobs(job_id) ON DELETE CASCADE,
+    event_type    VARCHAR(50) NOT NULL,
+    actor_id      UUID,
+    actor_role    VARCHAR(20),
+    created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE INDEX idx_job_events_job ON job_events(job_id);
 
 CREATE TABLE job_broadcasts (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -214,5 +229,24 @@ def init_db(force_reset=False):
                     cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS photos JSONB;")
                     cur.execute("ALTER TABLE jobs ALTER COLUMN issue_type TYPE TEXT;")
                     cur.execute("ALTER TABLE password_setup_tokens ADD COLUMN IF NOT EXISTS mechanic_id UUID REFERENCES mechanics(mechanic_id);")
-                except Exception:
-                    pass
+                    cur.execute("ALTER TABLE jobs ADD COLUMN IF NOT EXISTS idempotency_key UUID UNIQUE;")
+                    cur.execute("""
+                        CREATE TABLE IF NOT EXISTS job_events (
+                            id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                            job_id        UUID REFERENCES jobs(job_id) ON DELETE CASCADE,
+                            event_type    VARCHAR(50) NOT NULL,
+                            actor_id      UUID,
+                            actor_role    VARCHAR(20),
+                            created_at    TIMESTAMPTZ DEFAULT NOW()
+                        );
+                        CREATE INDEX IF NOT EXISTS idx_job_events_job ON job_events(job_id);
+                    """)
+                    # Adding constraints carefully as they might fail on existing bad data
+                    cur.execute("ALTER TABLE jobs ADD CONSTRAINT chk_cash_nonneg CHECK (cash_amount >= 0) NOT VALID;")
+                    cur.execute("ALTER TABLE jobs VALIDATE CONSTRAINT chk_cash_nonneg;")
+                    cur.execute("ALTER TABLE jobs ADD CONSTRAINT chk_status_valid CHECK (status IN ('pending', 'accepted', 'in_progress', 'completed', 'cancelled')) NOT VALID;")
+                    cur.execute("ALTER TABLE jobs VALIDATE CONSTRAINT chk_status_valid;")
+                    cur.execute("ALTER TABLE jobs ADD CONSTRAINT chk_accepted_has_mechanic CHECK (status IN ('pending', 'cancelled') OR mechanic_id IS NOT NULL) NOT VALID;")
+                    cur.execute("ALTER TABLE jobs VALIDATE CONSTRAINT chk_accepted_has_mechanic;")
+                except Exception as e:
+                    print(f"Migration error (non-fatal): {e}")

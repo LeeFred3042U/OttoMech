@@ -9,19 +9,19 @@
 var OttoRegister = (function () {
     'use strict';
 
-    // ── State (memory only, never persisted) ─────────────────
+    //  State (memory only, never persisted) ─
     var _email = '';
     var _role = '';
     var _countdownInterval = null;
     var _inflight = false;
 
-    // ── DOM refs (set during init) ───────────────────────────
+    //  DOM refs (set during init) ─
     var _els = {};
 
-    // ── Email validation regex ───────────────────────────────
+    //  Email validation regex ─
     var _emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    // ── Public: init ─────────────────────────────────────────
+    //  Public: init ─
     function init(cfg) {
         _role = cfg.role;
 
@@ -73,31 +73,31 @@ var OttoRegister = (function () {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: _email, role: role }),
                 })
-                .then(function (res) { return res.json(); })
-                .then(function (body) {
-                    resendLink.textContent = 'Code resent!';
-                    resendLink.style.opacity = '1';
-                    if (body.expires_in_seconds) {
-                        _startCountdown(body.expires_in_seconds);
-                    }
-                    // Cooldown: disable re-click for 30 s
-                    resendLink.dataset.cooldown = '1';
-                    setTimeout(function () {
-                        resendLink.textContent = 'Resend code';
+                    .then(function (res) { return res.json(); })
+                    .then(function (body) {
+                        resendLink.textContent = 'Code resent!';
+                        resendLink.style.opacity = '1';
+                        if (body.expires_in_seconds) {
+                            _startCountdown(body.expires_in_seconds);
+                        }
+                        // Cooldown: disable re-click for 30 s
+                        resendLink.dataset.cooldown = '1';
+                        setTimeout(function () {
+                            resendLink.textContent = 'Resend code';
+                            resendLink.style.pointerEvents = '';
+                            delete resendLink.dataset.cooldown;
+                        }, 30000);
+                    })
+                    .catch(function () {
+                        resendLink.textContent = 'Failed — try again';
+                        resendLink.style.opacity = '1';
                         resendLink.style.pointerEvents = '';
-                        delete resendLink.dataset.cooldown;
-                    }, 30000);
-                })
-                .catch(function () {
-                    resendLink.textContent = 'Failed — try again';
-                    resendLink.style.opacity = '1';
-                    resendLink.style.pointerEvents = '';
-                });
+                    });
             });
         }
     }
 
-    // ── Registration submit ──────────────────────────────────
+    //  Registration submit 
     function _handleRegister(cfg) {
         _clearAllErrors();
 
@@ -138,7 +138,7 @@ var OttoRegister = (function () {
         }
     }
 
-    // ── Geolocation capture ──────────────────────────────────
+    //  Geolocation capture 
     function _captureGeolocationAndSubmit(cfg, data) {
         var latInput = document.getElementById('lat');
         var lngInput = document.getElementById('lng');
@@ -183,7 +183,7 @@ var OttoRegister = (function () {
         );
     }
 
-    // ── Submit registration POST ─────────────────────────────
+    //  Submit registration POST ─
     function _submitRegistration(cfg, data) {
         _postJSON(cfg.endpoint, data, _els.btnRegister, _els.registerError, function (body) {
             if (_role === 'user') {
@@ -212,7 +212,7 @@ var OttoRegister = (function () {
         });
     }
 
-    // ── OTP submit (mechanic only) ───────────────────────────
+    //  OTP submit (mechanic only) ─
     function _handleOtp() {
         _clearError(_els.otpError);
         var otpEl = document.getElementById('otp');
@@ -235,14 +235,14 @@ var OttoRegister = (function () {
             if (_els.stepOtp) _els.stepOtp.hidden = true;
             _els.stepSuccess.hidden = false;
             _els.sessionToken.textContent = body.session_token;
-            
+
             localStorage.setItem('otto_token_handoff', body.session_token);
             localStorage.setItem('otto_id_handoff', body.id);
             localStorage.setItem('otto_role_handoff', body.role);
         });
     }
 
-    // ── Fetch helper ─────────────────────────────────────────
+    //  Fetch helper ─
     function _postJSON(url, data, btn, errorEl, onSuccess) {
         if (_inflight) return;
         _inflight = true;
@@ -254,31 +254,31 @@ var OttoRegister = (function () {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(data),
         })
-        .then(function (res) {
-            return res.json().then(function (body) {
-                return { status: res.status, body: body };
-            });
-        })
-        .then(function (result) {
-            _inflight = false;
-            _setBtnLoading(btn, false);
+            .then(function (res) {
+                return res.json().then(function (body) {
+                    return { status: res.status, body: body };
+                });
+            })
+            .then(function (result) {
+                _inflight = false;
+                _setBtnLoading(btn, false);
 
-            if (result.status >= 200 && result.status < 300) {
-                onSuccess(result.body);
-            } else {
-                // Show exact error from backend
-                var msg = result.body.error || 'Unknown error';
-                _showFormError(errorEl, msg, false);
-            }
-        })
-        .catch(function () {
-            _inflight = false;
-            _setBtnLoading(btn, false);
-            _showFormError(errorEl, "Can\u2019t reach the server \u2014 check your connection or try again.", true);
-        });
+                if (result.status >= 200 && result.status < 300) {
+                    onSuccess(result.body);
+                } else {
+                    // Show exact error from backend
+                    var msg = result.body.error || 'Unknown error';
+                    _showFormError(errorEl, msg, false);
+                }
+            })
+            .catch(function () {
+                _inflight = false;
+                _setBtnLoading(btn, false);
+                _showFormError(errorEl, "Can\u2019t reach the server \u2014 check your connection or try again.", true);
+            });
     }
 
-    // ── Countdown timer (mechanic OTP only) ──────────────────
+    //  Countdown timer (mechanic OTP only) 
     function _startCountdown(seconds) {
         _stopCountdown();
         if (!_els.countdown) return;
@@ -311,7 +311,7 @@ var OttoRegister = (function () {
         _els.countdown.classList.remove('expired');
     }
 
-    // ── Geolocation UI helpers ───────────────────────────────
+    //  Geolocation UI helpers ─
     function _showGeoNotice(msg) {
         if (_els.geoNotice) {
             _els.geoNotice.textContent = msg;
@@ -340,7 +340,7 @@ var OttoRegister = (function () {
         }
     }
 
-    // ── Error display helpers ────────────────────────────────
+    //  Error display helpers 
     function _showFieldError(fieldId, msg) {
         var errEl = document.getElementById('err-' + fieldId);
         if (errEl) errEl.textContent = msg;
@@ -375,7 +375,7 @@ var OttoRegister = (function () {
         if (_els.otpError) _clearError(_els.otpError);
     }
 
-    // ── Button loading state ─────────────────────────────────
+    //  Button loading state ─
     function _setBtnLoading(btn, loading) {
         if (!btn) return;
         btn.disabled = loading;
@@ -385,6 +385,6 @@ var OttoRegister = (function () {
         if (loadEl) loadEl.hidden = !loading;
     }
 
-    // ── Public API ───────────────────────────────────────────
+    //  Public API ─
     return { init: init };
 })();

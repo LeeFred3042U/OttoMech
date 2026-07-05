@@ -9,7 +9,7 @@
 var OttoDashboard = (function () {
     'use strict';
 
-    // ── State ────────────────────────────────────────────────
+    //  State 
     var _token = null;
     var _userId = null;
     var _role = null;
@@ -31,10 +31,10 @@ var OttoDashboard = (function () {
     var _driverMarker = null;
     var _mechanicMarker = null;
 
-    // ── DOM refs ─────────────────────────────────────────────
+    //  DOM refs ─
     var _els = {};
 
-    // ── Orange/Blue Leaflet markers ──────────────────────────
+    //  Orange/Blue Leaflet markers 
     var _orangeIcon = null;
     var _blueIcon = null;
 
@@ -53,7 +53,7 @@ var OttoDashboard = (function () {
         });
     }
 
-    // ── Init ─────────────────────────────────────────────────
+    //  Init ─
     function init() {
         // Read token handoff from localStorage
         _token = localStorage.getItem('otto_token_handoff');
@@ -78,7 +78,7 @@ var OttoDashboard = (function () {
         _bindGeolocation();
         _requestGeolocation();
         _connectSocket();
-        
+
         _prefetchWorkshops();
 
         // Check for active job on reload
@@ -93,34 +93,34 @@ var OttoDashboard = (function () {
         fetch('/jobs/' + _jobId, {
             headers: { 'Authorization': 'Bearer ' + _token }
         })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.job) {
-                if (data.job.status === 'pending') {
-                    _showStep('searching');
-                    _initSearchMap();
-                    _startPolling();
-                } else if (data.job.status === 'accepted') {
-                    // Bug #7 fix: restore driver coords before map init to prevent fitBounds null crash
-                    _driverLat = parseFloat(data.job.lat);
-                    _driverLng = parseFloat(data.job.lng);
-                    _showStep('matched');
-                    document.getElementById('mechanic-name') && (document.getElementById('mechanic-name').textContent = data.job.mechanic_name || 'Mechanic');
-                    _loadChatMessages();
-                    setTimeout(function() {
-                        _showStep('tracking');
-                        _initTrackMap();
-                        setTimeout(function() { if (_trackMap) _trackMap.invalidateSize(); }, 150);
-                    }, 3000);
-                } else if (data.job.status === 'completed') {
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.job) {
+                    if (data.job.status === 'pending') {
+                        _showStep('searching');
+                        _initSearchMap();
+                        _startPolling();
+                    } else if (data.job.status === 'accepted') {
+                        // Bug #7 fix: restore driver coords before map init to prevent fitBounds null crash
+                        _driverLat = parseFloat(data.job.lat);
+                        _driverLng = parseFloat(data.job.lng);
+                        _showStep('matched');
+                        document.getElementById('mechanic-name') && (document.getElementById('mechanic-name').textContent = data.job.mechanic_name || 'Mechanic');
+                        _loadChatMessages();
+                        setTimeout(function () {
+                            _showStep('tracking');
+                            _initTrackMap();
+                            setTimeout(function () { if (_trackMap) _trackMap.invalidateSize(); }, 150);
+                        }, 3000);
+                    } else if (data.job.status === 'completed') {
+                        localStorage.removeItem('otto_active_job_id');
+                    }
+                } else {
                     localStorage.removeItem('otto_active_job_id');
+                    _jobId = null;
                 }
-            } else {
-                localStorage.removeItem('otto_active_job_id');
-                _jobId = null;
-            }
-        })
-        .catch(function(e) {});
+            })
+            .catch(function (e) { });
     }
 
     function _prefetchWorkshops() {
@@ -128,15 +128,15 @@ var OttoDashboard = (function () {
         fetch('/mechanics/available?limit=5', {
             headers: { 'Authorization': 'Bearer ' + _token }
         })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.mechanics) {
-                localStorage.setItem('otto_cached_workshops', JSON.stringify(data.mechanics));
-            }
-        })
-        .catch(function() {
-            // Silently fail if offline
-        });
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.mechanics) {
+                    localStorage.setItem('otto_cached_workshops', JSON.stringify(data.mechanics));
+                }
+            })
+            .catch(function () {
+                // Silently fail if offline
+            });
     }
 
     function _cacheDom() {
@@ -151,7 +151,7 @@ var OttoDashboard = (function () {
         _els.noMechanicsMsg = document.getElementById('no-mechanics-msg');
     }
 
-    // ── Issue Selection ──────────────────────────────────────
+    //  Issue Selection 
     function _bindIssueCards() {
         var vehicleInput = document.getElementById('vehicle_model');
         if (vehicleInput) {
@@ -171,10 +171,10 @@ var OttoDashboard = (function () {
                     this.classList.toggle('selected');
                     var otherCard = document.querySelector('.chip[data-issue="other"]');
                     if (otherCard) otherCard.classList.remove('selected');
-                    
+
                     var index = _selectedIssues.indexOf('other');
                     if (index > -1) _selectedIssues.splice(index, 1);
-                    
+
                     var issueIndex = _selectedIssues.indexOf(issue);
                     if (this.classList.contains('selected')) {
                         if (issueIndex === -1) _selectedIssues.push(issue);
@@ -190,10 +190,10 @@ var OttoDashboard = (function () {
     function _updateFindButton() {
         var vehicleModel = document.getElementById('vehicle_model') ? document.getElementById('vehicle_model').value.trim() : '';
         var hasLocation = _geoGranted;
-        _els.btnFind.disabled = !(_selectedIssues.length > 0 && hasLocation && vehicleModel && _photosBase64.length > 0);
+        _els.btnFind.disabled = !(_selectedIssues.length > 0 && hasLocation && vehicleModel);
     }
 
-    // ── Photo Upload ─────────────────────────────────────────
+    //  Photo Upload ─
     function _bindPhotoUpload() {
         var input = document.getElementById('photo-upload');
         var thumb = document.getElementById('upload-thumb');
@@ -207,7 +207,7 @@ var OttoDashboard = (function () {
             input.value = '';
             thumb.innerHTML = defaultThumbHTML;
             title.textContent = 'Add photo(s)';
-            hint.textContent = 'Camera or gallery · mandatory, max 30 MB';
+            hint.textContent = 'Camera or Gallery';
             removeBtn.hidden = true;
             _updateFindButton();
         }
@@ -215,7 +215,7 @@ var OttoDashboard = (function () {
         input.addEventListener('change', function () {
             var files = input.files;
             if (!files || files.length === 0) return;
-            
+
             var totalSize = 0;
             for (var i = 0; i < files.length; i++) {
                 totalSize += files[i].size;
@@ -224,11 +224,11 @@ var OttoDashboard = (function () {
                 document.getElementById('err-photo').textContent = 'New photos must be under 30 MB';
                 return;
             }
-            
+
             document.getElementById('err-photo').textContent = '';
             var loaded = 0;
-            
-            Array.from(files).forEach(function(file) {
+
+            Array.from(files).forEach(function (file) {
                 var reader = new FileReader();
                 reader.onload = function (e) {
                     _photosBase64.push(e.target.result);
@@ -251,7 +251,7 @@ var OttoDashboard = (function () {
         });
     }
 
-    // ── Description Toggle ───────────────────────────────────
+    //  Description Toggle ─
     function _bindDescriptionToggle() {
         var toggle = document.getElementById('desc-toggle');
         var panel = document.getElementById('desc-panel');
@@ -271,11 +271,11 @@ var OttoDashboard = (function () {
         });
     }
 
-    // ── Geolocation ──────────────────────────────────────────
+    //  Geolocation 
     function _bindGeolocation() {
         var btnGetLoc = document.getElementById('btn-get-location');
         if (btnGetLoc) {
-            btnGetLoc.addEventListener('click', function() {
+            btnGetLoc.addEventListener('click', function () {
                 _requestGeolocation();
             });
         }
@@ -315,12 +315,12 @@ var OttoDashboard = (function () {
         _updateFindButton();
     }
 
-    // ── Find Mechanic ────────────────────────────────────────
+    //  Find Mechanic 
     function _bindFindButton() {
         _els.btnFind.addEventListener('click', function () {
             _createJob();
         });
-        
+
         var btnTryAgain = document.getElementById('btn-try-again');
         if (btnTryAgain) {
             btnTryAgain.addEventListener('click', function () {
@@ -331,7 +331,7 @@ var OttoDashboard = (function () {
                 _els.noMechanicsMsg.hidden = true;
             });
         }
-        
+
         var btnCallDirectly = document.getElementById('btn-call-directly');
         if (btnCallDirectly) {
             btnCallDirectly.addEventListener('click', function () {
@@ -374,40 +374,42 @@ var OttoDashboard = (function () {
             },
             body: JSON.stringify(payload),
         })
-        .then(function (res) { return res.json().then(function (b) { return { status: res.status, body: b }; }); })
-        .then(function (r) {
-            _setBtnLoading(_els.btnFind, false);
-            if (r.status === 201) {
-                _jobId = r.body.job.job_id;
-                localStorage.setItem('otto_active_job_id', _jobId);
+            .then(function (res) { return res.json().then(function (b) { return { status: res.status, body: b }; }); })
+            .then(function (r) {
+                _setBtnLoading(_els.btnFind, false);
+                if (r.status === 201) {
+                    _jobId = r.body.job.job_id;
+                    localStorage.setItem('otto_active_job_id', _jobId);
 
-                // Join job room via socket
-                if (_socket && _socket.connected) {
-                    _socket.emit('join_job', { job_id: _jobId, role: 'user' });
+                    // Join job room via socket
+                    if (_socket && _socket.connected) {
+                        _socket.emit('join_job', { job_id: _jobId, role: 'user' });
+                    }
+
+                    // Transition to searching
+                    _showStep('searching');
+                    _initSearchMap();
+
+                    // Handle no mechanics notified
+                    if (r.body.mechanics_notified === 0) {
+                        _els.noMechanicsMsg.hidden = false;
+                    }
+
+                    // Start polling/timeout for fallback
+                    _startPolling();
+                } else {
+                    alert('Error: ' + (r.body.error || 'Failed to create job'));
                 }
-
-                // Transition to searching
-                _showStep('searching');
-                _initSearchMap();
-
-                // Handle no mechanics notified
-                if (r.body.mechanics_notified === 0) {
-                    _els.noMechanicsMsg.hidden = false;
+            })
+            .catch(function (error) {
+                _setBtnLoading(_els.btnFind, false);
+                if (!navigator.onLine || error.name === 'TypeError') {
+                    _showFallback();
                 }
-                
-                // Start polling/timeout for fallback
-                _startPolling();
-            }
-        })
-        .catch(function (error) {
-            _setBtnLoading(_els.btnFind, false);
-            if (!navigator.onLine || error.name === 'TypeError') {
-                _showFallback();
-            }
-        });
+            });
     }
 
-    // ── Poll for job status changes ──────────────────────────
+    //  Poll for job status changes 
     function _startPolling() {
         _pollCount = 0;
         _pollTimer = setInterval(function () {
@@ -420,42 +422,42 @@ var OttoDashboard = (function () {
             fetch('/jobs/' + _jobId, {
                 headers: { 'Authorization': 'Bearer ' + _token },
             })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (data.job && data.job.status !== 'pending') {
-                    clearInterval(_pollTimer);
-                }
-            })
-            .catch(function () {});
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (data.job && data.job.status !== 'pending') {
+                        clearInterval(_pollTimer);
+                    }
+                })
+                .catch(function () { });
         }, 10000);
     }
-    
+
     function _showFallback() {
         _showStep('fallback');
-        
+
         var listContainer = document.getElementById('fallback-mechanics-list');
         if (!listContainer) return;
-        
+
         listContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted); font-size: 0.875rem;">Loading mechanics...</p>';
-        
+
         fetch('/mechanics/available?limit=5', {
             headers: { 'Authorization': 'Bearer ' + _token }
         })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            _renderFallbackMechanics(listContainer, data.mechanics);
-        })
-        .catch(function() {
-            var cached = localStorage.getItem('otto_cached_workshops');
-            if (cached) {
-                try {
-                    var mechanics = JSON.parse(cached);
-                    _renderFallbackMechanics(listContainer, mechanics);
-                    return;
-                } catch(e) {}
-            }
-            listContainer.innerHTML = '<p style="text-align: center; color: var(--error); font-size: 0.875rem;">Failed to load mechanics.</p>';
-        });
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                _renderFallbackMechanics(listContainer, data.mechanics);
+            })
+            .catch(function () {
+                var cached = localStorage.getItem('otto_cached_workshops');
+                if (cached) {
+                    try {
+                        var mechanics = JSON.parse(cached);
+                        _renderFallbackMechanics(listContainer, mechanics);
+                        return;
+                    } catch (e) { }
+                }
+                listContainer.innerHTML = '<p style="text-align: center; color: var(--error); font-size: 0.875rem;">Failed to load mechanics.</p>';
+            });
     }
 
     function _renderFallbackMechanics(listContainer, mechanics) {
@@ -464,8 +466,8 @@ var OttoDashboard = (function () {
             listContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted); font-size: 0.875rem;">No other mechanics found.</p>';
             return;
         }
-        
-        mechanics.forEach(function(mech) {
+
+        mechanics.forEach(function (mech) {
             var rating = mech.rating ? mech.rating + ' ★' : 'New';
             var html = `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--gray-100);">
@@ -480,7 +482,7 @@ var OttoDashboard = (function () {
         });
     }
 
-    // ── Step management ──────────────────────────────────────
+    //  Step management 
     function _showStep(step) {
         // Keep track of the active job step if we are showing it
         if (['issue', 'searching', 'fallback', 'matched', 'tracking', 'complete'].indexOf(step) !== -1) {
@@ -489,14 +491,14 @@ var OttoDashboard = (function () {
 
         _els.stepIssue.hidden = step !== 'issue';
         _els.stepSearching.hidden = step !== 'searching';
-        
+
         var stepFallback = document.getElementById('step-fallback');
         if (stepFallback) stepFallback.hidden = step !== 'fallback';
-        
+
         _els.stepMatched.hidden = step !== 'matched';
         _els.stepTracking.hidden = step !== 'tracking';
         _els.stepComplete.hidden = step !== 'complete';
-        
+
         var panelAccount = document.getElementById('panel-account');
         if (panelAccount) panelAccount.hidden = step !== 'account';
         var panelActivity = document.getElementById('panel-activity');
@@ -506,13 +508,13 @@ var OttoDashboard = (function () {
         setTimeout(_invalidateMaps, 50);
     }
 
-    // ── Invalidate all active Leaflet maps ─────────────────────────
+    //  Invalidate all active Leaflet maps ─
     function _invalidateMaps() {
         if (_searchMap) _searchMap.invalidateSize();
-        if (_trackMap)  _trackMap.invalidateSize();
+        if (_trackMap) _trackMap.invalidateSize();
     }
 
-    // ── Leaflet Maps ─────────────────────────────────────────
+    //  Leaflet Maps ─
     function _initSearchMap() {
         if (_searchMap) return;
         var container = document.getElementById('map-searching');
@@ -533,7 +535,7 @@ var OttoDashboard = (function () {
         _driverMarker = L.marker([_driverLat, _driverLng], { icon: _orangeIcon }).addTo(_trackMap);
     }
 
-    // ── Socket.IO ────────────────────────────────────────────
+    //  Socket.IO 
     function _connectSocket() {
         _socket = io(location.origin, { auth: { token: _token } });
 
@@ -584,14 +586,14 @@ var OttoDashboard = (function () {
             }
 
             _loadChatMessages();
-            
+
             // Show matched step briefly, then transition to tracking
             _showStep('matched');
             setTimeout(function () {
                 _showStep('tracking');
                 _initTrackMap();
                 // Bug #1 fix: invalidateSize after the step is visible
-                setTimeout(function() { if (_trackMap) _trackMap.invalidateSize(); }, 150);
+                setTimeout(function () { if (_trackMap) _trackMap.invalidateSize(); }, 150);
             }, 3000);
         });
 
@@ -626,7 +628,7 @@ var OttoDashboard = (function () {
             _driverMarker = null;
             _mechanicMarker = null;
             // Bug #2 fix: destroy map instances so a subsequent job gets a fresh map
-            if (_trackMap)  { _trackMap.remove();  _trackMap  = null; }
+            if (_trackMap) { _trackMap.remove(); _trackMap = null; }
             if (_searchMap) { _searchMap.remove(); _searchMap = null; }
             localStorage.removeItem('otto_active_job_id');
 
@@ -639,10 +641,10 @@ var OttoDashboard = (function () {
             _appendChatMessage(data);
         });
 
-        _socket.on('error', function (err) {});
+        _socket.on('error', function (err) { });
     }
 
-    // ── Receipt Download ─────────────────────────────────────
+    //  Receipt Download ─
     function _bindReceiptButton() {
         document.getElementById('btn-download-receipt').addEventListener('click', function () {
             if (!_jobId) return;
@@ -652,34 +654,34 @@ var OttoDashboard = (function () {
             fetch('/receipts/' + _jobId, {
                 headers: { 'Authorization': 'Bearer ' + _token },
             })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                _setBtnLoading(btn, false);
-                if (data.pdf_base64) {
-                    var byteChars = atob(data.pdf_base64);
-                    var byteNumbers = new Array(byteChars.length);
-                    for (var i = 0; i < byteChars.length; i++) {
-                        byteNumbers[i] = byteChars.charCodeAt(i);
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    _setBtnLoading(btn, false);
+                    if (data.pdf_base64) {
+                        var byteChars = atob(data.pdf_base64);
+                        var byteNumbers = new Array(byteChars.length);
+                        for (var i = 0; i < byteChars.length; i++) {
+                            byteNumbers[i] = byteChars.charCodeAt(i);
+                        }
+                        var byteArray = new Uint8Array(byteNumbers);
+                        var blob = new Blob([byteArray], { type: 'application/pdf' });
+                        var url = URL.createObjectURL(blob);
+                        var a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'OttoMech-Receipt.pdf';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
                     }
-                    var byteArray = new Uint8Array(byteNumbers);
-                    var blob = new Blob([byteArray], { type: 'application/pdf' });
-                    var url = URL.createObjectURL(blob);
-                    var a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'OttoMech-Receipt.pdf';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                }
-            })
-            .catch(function () {
-                _setBtnLoading(btn, false);
-            });
+                })
+                .catch(function () {
+                    _setBtnLoading(btn, false);
+                });
         });
     }
 
-    // ── Rating Submission ────────────────────────────────────
+    //  Rating Submission 
     function _bindRating() {
         var stars = document.querySelectorAll('#star-rating span');
         var btnSubmit = document.getElementById('btn-submit-rating');
@@ -701,40 +703,40 @@ var OttoDashboard = (function () {
 
         btnSubmit.addEventListener('click', function () {
             if (!_jobId || !selectedRating) return;
-            
+
             _setBtnLoading(btnSubmit, true);
             fetch('/jobs/' + _jobId + '/rate', {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Authorization': 'Bearer ' + _token,
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ rating: selectedRating })
             })
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                _setBtnLoading(btnSubmit, false);
-                if (data.message) {
-                    btnSubmit.style.display = 'none';
-                    successMsg.style.display = 'block';
-                }
-            })
-            .catch(function () {
-                _setBtnLoading(btnSubmit, false);
-            });
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    _setBtnLoading(btnSubmit, false);
+                    if (data.message) {
+                        btnSubmit.style.display = 'none';
+                        successMsg.style.display = 'block';
+                    }
+                })
+                .catch(function () {
+                    _setBtnLoading(btnSubmit, false);
+                });
         });
     }
 
-    // ── Chat Logic ───────────────────────────────────────────
+    //  Chat Logic ─
     function _bindChat() {
         var btnSend = document.getElementById('btn-send-chat');
         var inputChat = document.getElementById('chat-input');
         if (!btnSend || !inputChat) return;
 
-        btnSend.addEventListener('click', function() {
+        btnSend.addEventListener('click', function () {
             var msg = inputChat.value.trim();
             if (!msg || !_jobId || !_socket) return;
-            
+
             _socket.emit('chat_message', {
                 session_token: _token,
                 job_id: _jobId,
@@ -743,7 +745,7 @@ var OttoDashboard = (function () {
             inputChat.value = '';
         });
 
-        inputChat.addEventListener('keypress', function(e) {
+        inputChat.addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 btnSend.click();
             }
@@ -753,18 +755,18 @@ var OttoDashboard = (function () {
     function _loadChatMessages() {
         var container = document.getElementById('chat-messages');
         if (!container || !_jobId) return;
-        
+
         container.innerHTML = '';
         fetch('/jobs/' + _jobId + '/messages', {
             headers: { 'Authorization': 'Bearer ' + _token }
         })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.messages) {
-                data.messages.forEach(_appendChatMessage);
-            }
-        })
-        .catch(function(err) { console.error('Failed to load chat:', err); });
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.messages) {
+                    data.messages.forEach(_appendChatMessage);
+                }
+            })
+            .catch(function (err) { console.error('Failed to load chat:', err); });
     }
 
     function _appendChatMessage(data) {
@@ -780,13 +782,13 @@ var OttoDashboard = (function () {
         div.style.background = isMe ? 'var(--brand-darkest)' : 'var(--bg-surface)';
         div.style.color = isMe ? '#fff' : 'var(--text-primary)';
         div.style.border = isMe ? 'none' : '1px solid var(--border-subtle)';
-        
+
         div.textContent = data.message;
         container.appendChild(div);
         container.scrollTop = container.scrollHeight;
     }
 
-    // ── Button loading state ─────────────────────────────────
+    //  Button loading state ─
     function _setBtnLoading(btn, loading) {
         btn.disabled = loading;
         var textEl = btn.querySelector('.btn-text');
@@ -795,14 +797,14 @@ var OttoDashboard = (function () {
         if (loadEl) loadEl.hidden = !loading;
     }
 
-    // ── HTML escaping ────────────────────────────────────────
+    //  HTML escaping 
     function _escapeHtml(str) {
         var div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
     }
 
-    // ── Navigation & Tabs ────────────────────────────────────
+    //  Navigation & Tabs 
     function _bindNavigation() {
         var tabHome = document.getElementById('tab-home');
         var tabActivity = document.getElementById('tab-activity');
@@ -828,13 +830,13 @@ var OttoDashboard = (function () {
             }
         }
 
-        tabHome.addEventListener('click', function() { switchTab('home'); });
-        tabActivity.addEventListener('click', function() { switchTab('activity'); });
-        tabAccount.addEventListener('click', function() { switchTab('account'); });
+        tabHome.addEventListener('click', function () { switchTab('home'); });
+        tabActivity.addEventListener('click', function () { switchTab('activity'); });
+        tabAccount.addEventListener('click', function () { switchTab('account'); });
 
         var btnLogout = document.getElementById('btn-logout');
         if (btnLogout) {
-            btnLogout.addEventListener('click', function() {
+            btnLogout.addEventListener('click', function () {
                 localStorage.removeItem('otto_token_handoff');
                 localStorage.removeItem('otto_id_handoff');
                 localStorage.removeItem('otto_role_handoff');
@@ -847,71 +849,71 @@ var OttoDashboard = (function () {
         fetch('/auth/me', {
             headers: { 'Authorization': 'Bearer ' + _token }
         })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (data.profile) {
-                document.getElementById('acct-name').textContent = data.profile.first_name + (data.profile.last_name ? ' ' + data.profile.last_name : '');
-                document.getElementById('acct-email').textContent = data.profile.email;
-                document.getElementById('acct-phone').textContent = data.profile.phone_number;
-                
-                var badge = document.getElementById('acct-email-badge');
-                if (badge) badge.style.display = data.profile.email_verified ? 'none' : 'inline-block';
-                
-                var setPwdBtn = document.getElementById('btn-set-password');
-                if (setPwdBtn) {
-                    setPwdBtn.style.display = (data.profile.status === 'PENDING_PASSWORD' || !data.profile.password_hash_exists) ? 'block' : 'none';
-                    setPwdBtn.onclick = function() {
-                        _setBtnLoading(setPwdBtn, true);
-                        fetch('/auth/login/user/request-setup-link', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ email: data.profile.email })
-                        }).then(function() {
-                            _setBtnLoading(setPwdBtn, false);
-                            alert('Check terminal for the setup link!');
-                        }).catch(function() {
-                            _setBtnLoading(setPwdBtn, false);
-                        });
-                    };
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.profile) {
+                    document.getElementById('acct-name').textContent = data.profile.first_name + (data.profile.last_name ? ' ' + data.profile.last_name : '');
+                    document.getElementById('acct-email').textContent = data.profile.email;
+                    document.getElementById('acct-phone').textContent = data.profile.phone_number;
+
+                    var badge = document.getElementById('acct-email-badge');
+                    if (badge) badge.style.display = data.profile.email_verified ? 'none' : 'inline-block';
+
+                    var setPwdBtn = document.getElementById('btn-set-password');
+                    if (setPwdBtn) {
+                        setPwdBtn.style.display = (data.profile.status === 'PENDING_PASSWORD' || !data.profile.password_hash_exists) ? 'block' : 'none';
+                        setPwdBtn.onclick = function () {
+                            _setBtnLoading(setPwdBtn, true);
+                            fetch('/auth/login/user/request-setup-link', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ email: data.profile.email })
+                            }).then(function () {
+                                _setBtnLoading(setPwdBtn, false);
+                                alert('Check terminal for the setup link!');
+                            }).catch(function () {
+                                _setBtnLoading(setPwdBtn, false);
+                            });
+                        };
+                    }
                 }
-            }
-        })
-        .catch(function() {
-            document.getElementById('acct-name').textContent = 'Error loading profile';
-        });
+            })
+            .catch(function () {
+                document.getElementById('acct-name').textContent = 'Error loading profile';
+            });
     }
 
     function _fetchActivity() {
         var listEl = document.getElementById('activity-list');
         if (!listEl) return;
-        
+
         listEl.innerHTML = '<p style="color: var(--text-muted); font-size: 0.875rem;">Loading activity...</p>';
-        
+
         fetch('/jobs', {
             headers: { 'Authorization': 'Bearer ' + _token }
         })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            listEl.innerHTML = '';
-            if (!data.jobs || data.jobs.length === 0) {
-                listEl.innerHTML = '<p style="color: var(--text-muted); font-size: 0.875rem;">No recent jobs.</p>';
-                return;
-            }
-            
-            data.jobs.forEach(function(job) {
-                var d = new Date(job.created_at).toLocaleDateString();
-                var issues = (job.issue_type || '').split(',').join(', ');
-                var status = job.status || 'unknown';
-                var statusColor = status === 'completed' ? 'var(--success, #22c55e)'
-                                : status === 'pending'   ? 'var(--brand-400, #f5a623)'
-                                : status === 'cancelled' ? 'var(--text-muted)'
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                listEl.innerHTML = '';
+                if (!data.jobs || data.jobs.length === 0) {
+                    listEl.innerHTML = '<p style="color: var(--text-muted); font-size: 0.875rem;">No recent jobs.</p>';
+                    return;
+                }
+
+                data.jobs.forEach(function (job) {
+                    var d = new Date(job.created_at).toLocaleDateString();
+                    var issues = (job.issue_type || '').split(',').join(', ');
+                    var status = job.status || 'unknown';
+                    var statusColor = status === 'completed' ? 'var(--success, #22c55e)'
+                        : status === 'pending' ? 'var(--brand-400, #f5a623)'
+                            : status === 'cancelled' ? 'var(--text-muted)'
                                 : 'var(--gray-400)';
-                
-                var card = document.createElement('div');
-                card.className = 'mechanic-info-card';
-                card.style.marginBottom = '1rem';
-                card.setAttribute('data-job-id', job.job_id);
-                card.innerHTML = `
+
+                    var card = document.createElement('div');
+                    card.className = 'mechanic-info-card';
+                    card.style.marginBottom = '1rem';
+                    card.setAttribute('data-job-id', job.job_id);
+                    card.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <span style="font-weight: 500; text-transform: capitalize;">${_escapeHtml(issues)}</span>
                         <span style="font-size: 0.75rem; padding: 2px 8px; border-radius: 99px; background: var(--cream-100); color: ${statusColor}; font-weight: 600;">${status}</span>
@@ -930,47 +932,47 @@ var OttoDashboard = (function () {
                         Cancel Request
                     </button>` : ''}
                 `;
-                listEl.appendChild(card);
-            });
+                    listEl.appendChild(card);
+                });
 
-            // Bind cancel buttons
-            listEl.querySelectorAll('.btn-cancel-job').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    var jobId = this.getAttribute('data-job-id');
-                    var cardEl = listEl.querySelector('[data-job-id="' + jobId + '"]');
-                    btn.disabled = true;
-                    btn.textContent = 'Cancelling…';
+                // Bind cancel buttons
+                listEl.querySelectorAll('.btn-cancel-job').forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        var jobId = this.getAttribute('data-job-id');
+                        var cardEl = listEl.querySelector('[data-job-id="' + jobId + '"]');
+                        btn.disabled = true;
+                        btn.textContent = 'Cancelling…';
 
-                    fetch('/jobs/' + jobId + '/cancel', {
-                        method: 'PATCH',
-                        headers: { 'Authorization': 'Bearer ' + _token }
-                    })
-                    .then(function(r) { return r.json(); })
-                    .then(function(res) {
-                        if (res.status === 'cancelled' && cardEl) {
-                            // Update status badge in place
-                            var badge = cardEl.querySelector('span:last-of-type');
-                            if (badge) { badge.textContent = 'cancelled'; badge.style.color = 'var(--text-muted)'; }
-                            btn.remove();
-                        } else {
-                            btn.disabled = false;
-                            btn.textContent = 'Cancel Request';
-                            alert(res.error || 'Could not cancel job.');
-                        }
-                    })
-                    .catch(function() {
-                        btn.disabled = false;
-                        btn.textContent = 'Cancel Request';
+                        fetch('/jobs/' + jobId + '/cancel', {
+                            method: 'PATCH',
+                            headers: { 'Authorization': 'Bearer ' + _token }
+                        })
+                            .then(function (r) { return r.json(); })
+                            .then(function (res) {
+                                if (res.status === 'cancelled' && cardEl) {
+                                    // Update status badge in place
+                                    var badge = cardEl.querySelector('span:last-of-type');
+                                    if (badge) { badge.textContent = 'cancelled'; badge.style.color = 'var(--text-muted)'; }
+                                    btn.remove();
+                                } else {
+                                    btn.disabled = false;
+                                    btn.textContent = 'Cancel Request';
+                                    alert(res.error || 'Could not cancel job.');
+                                }
+                            })
+                            .catch(function () {
+                                btn.disabled = false;
+                                btn.textContent = 'Cancel Request';
+                            });
                     });
                 });
+            })
+            .catch(function () {
+                listEl.innerHTML = '<p style="color: var(--error); font-size: 0.875rem;">Failed to load activity.</p>';
             });
-        })
-        .catch(function() {
-            listEl.innerHTML = '<p style="color: var(--error); font-size: 0.875rem;">Failed to load activity.</p>';
-        });
     }
 
-    // ── Auto-init on DOMContentLoaded ────────────────────────
+    //  Auto-init on DOMContentLoaded 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {

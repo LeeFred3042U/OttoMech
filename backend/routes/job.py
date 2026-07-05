@@ -17,6 +17,8 @@
 # curl http://localhost:5000/jobs/<job_id> \
 #   -H "Authorization: Bearer <token>"
 
+import base64
+import binascii
 import json
 import logging
 import uuid
@@ -44,6 +46,32 @@ def _parse_uuid(value, field_name):
         return str(uuid.UUID(str(value)))
     except (TypeError, ValueError, AttributeError):
         return None
+
+def _validate_base64_image(b64_str, max_bytes=5 * 1024 * 1024):
+    if not isinstance(b64_str, str):
+        return False
+    # Strip data URL prefix if present
+    if "," in b64_str:
+        b64_str = b64_str.split(",", 1)[1]
+    
+    # Check estimated size
+    if len(b64_str) * 3 / 4 > max_bytes:
+        return False
+        
+    try:
+        data = base64.b64decode(b64_str, validate=True)
+        # Check magic bytes for jpeg, png, gif, webp
+        if data.startswith(b'\xff\xd8\xff'):
+            return True
+        elif data.startswith(b'\x89PNG\r\n\x1a\n'):
+            return True
+        elif data.startswith(b'GIF87a') or data.startswith(b'GIF89a'):
+            return True
+        elif data.startswith(b'RIFF') and data[8:12] == b'WEBP':
+            return True
+        return False
+    except binascii.Error:
+        return False
 
 
 def _serialize_job(row):
@@ -120,30 +148,57 @@ def create_job():
     except (TypeError, ValueError):
         return jsonify({"error": "lat and lng must be valid numbers"}), 400
 
+    idempotency_key = data.get("idempotency_key") or request.headers.get("Idempotency-Key")
+    if idempotency_key:
+        idempotency_key = _parse_uuid(idempotency_key, "idempotency_key")
+        if not idempotency_key:
+            return jsonify({"error": "Invalid idempotency_key format"}), 400
+
     photos = data.get("photos")
+    if photos:
+        if not isinstance(photos, list):
+            return jsonify({"error": "photos must be a list of base64 strings"}), 400
+        for p in photos:
+            if not _validate_base64_image(p):
+                return jsonify({"error": "Invalid or overly large photo data"}), 400
     photos_json = json.dumps(photos) if photos else None
     vehicle_model = data.get("vehicle_model")
 
     try:
         with get_db() as conn:
             with conn.cursor() as cur:
+                if idempotency_key:
+                    cur.execute("SELECT job_id FROM jobs WHERE idempotency_key = %s;", (idempotency_key,))
+                    existing = cur.fetchone()
+                    if existing:
+                        job_row = _fetch_job(cur, existing[0])
+                        return jsonify({"job": _serialize_job(job_row), "mechanics_notified": 0}), 200
+
                 nearby = fetch_nearby_mechanics(cur, lat, lng)
 
                 cur.execute(
                     """
                     INSERT INTO jobs (
                         driver_id, issue_type, status, lat, lng,
-                        vehicle_model, photos
+                        vehicle_model, photos, idempotency_key
                     )
                     VALUES (
                         %s, %s, 'pending', %s, %s,
-                        %s, %s
+                        %s, %s, %s
                     )
                     RETURNING job_id;
                     """,
-                    (driver_id, issue_type, lat, lng, vehicle_model, photos_json),
+                    (driver_id, issue_type, lat, lng, vehicle_model, photos_json, idempotency_key),
                 )
                 job_id = cur.fetchone()[0]
+
+                cur.execute(
+                    """
+                    INSERT INTO job_events (job_id, event_type, actor_id, actor_role)
+                    VALUES (%s, 'created', %s, 'user');
+                    """,
+                    (job_id, driver_id)
+                )
 
                 for row in nearby:
                     cur.execute(
@@ -264,6 +319,14 @@ def accept_job(job_id):
                     (job_id, mechanic_id),
                 )
 
+                cur.execute(
+                    """
+                    INSERT INTO job_events (job_id, event_type, actor_id, actor_role)
+                    VALUES (%s, 'accepted', %s, 'mechanic');
+                    """,
+                    (job_id, mechanic_id)
+                )
+
                 row = _fetch_job(cur, job_id)
 
                 # Fetch mechanic details for match_confirmed payload
@@ -381,7 +444,7 @@ def complete_job(job_id):
                     (cash_amount, job_id),
                 )
 
-                # ── Stage 7: MRI events ──────────────────────────────
+                #  Stage 7: MRI events 
                 # 1. COMPLETED event
                 cur.execute(
                     """
@@ -389,6 +452,14 @@ def complete_job(job_id):
                     VALUES (%s, 'COMPLETED');
                     """,
                     (assigned_mechanic,),
+                )
+
+                cur.execute(
+                    """
+                    INSERT INTO job_events (job_id, event_type, actor_id, actor_role)
+                    VALUES (%s, 'completed', %s, 'mechanic');
+                    """,
+                    (job_id, assigned_mechanic)
                 )
 
                 # Fetch timing data for ON_TIME/LATE and RESPONSE_TIME
@@ -444,7 +515,7 @@ def complete_job(job_id):
                             (assigned_mechanic, response_seconds),
                         )
 
-                # ── Stage 7: MRI recomputation ───────────────────────
+                #  Stage 7: MRI recomputation ─
                 try:
                     from routes.mri import compute_mri_score
                     new_score = compute_mri_score(cur, assigned_mechanic)
@@ -462,7 +533,7 @@ def complete_job(job_id):
                         assigned_mechanic,
                     )
 
-                # ── Stage 7: PDF receipt generation ──────────────────
+                #  Stage 7: PDF receipt generation 
                 try:
                     from routes.mri import generate_receipt_pdf
 
@@ -520,7 +591,7 @@ def complete_job(job_id):
     except Exception:
         return db_error_response()
 
-    # ── Stage 7: emit 'job_completed' to driver's room ───────────
+    #  Stage 7: emit 'job_completed' to driver's room ─
     try:
         sio = current_app.extensions.get("socketio")
         if sio and row:
@@ -592,6 +663,14 @@ def cancel_job(job_id):
                 cur.execute(
                     "UPDATE jobs SET status = 'cancelled' WHERE job_id = %s;",
                     (job_id,),
+                )
+                
+                cur.execute(
+                    """
+                    INSERT INTO job_events (job_id, event_type, actor_id, actor_role)
+                    VALUES (%s, 'cancelled', %s, 'user');
+                    """,
+                    (job_id, driver_id)
                 )
     except Exception:
         return db_error_response()

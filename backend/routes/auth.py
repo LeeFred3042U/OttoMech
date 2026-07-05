@@ -16,6 +16,8 @@ import random
 import re
 import secrets
 import smtplib
+import time
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from email.mime.text import MIMEText
 from functools import wraps
@@ -32,16 +34,35 @@ from routes.common import db_error_response
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 _token_store = {}
+# Note: This rate limiter is in-memory and per-worker. If scaling to multiple workers 
+# (e.g., Gunicorn with -w > 1), each worker will have its own counter, effectively multiplying the limit.
+# For multi-worker setups, migrate this to a shared Redis store.
+rate_limit_attempts = defaultdict(list)
 
 OTP_EXPIRY_SECONDS = 300
 COUNTRY_PATTERN = re.compile(r"^[A-Z]{2}$")
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
+def check_rate_limit(key, max_attempts=5, window_sec=300):
+    now = time.time()
+    rate_limit_attempts[key] = [t for t in rate_limit_attempts[key] if now - t < window_sec]
+    if len(rate_limit_attempts[key]) >= max_attempts:
+        return False
+    rate_limit_attempts[key].append(now)
+    return True
+
+
 def validate_token(token):
     if not token:
         return None
-    return _token_store.get(token)
+    session = _token_store.get(token)
+    if session:
+        if session.get("expires_at", 0) < time.time():
+            del _token_store[token]
+            return None
+        return session
+    return None
 
 
 def require_auth(f):
@@ -147,6 +168,44 @@ def _send_otp_email(email, otp_code):
         print(f"[OTP EMAIL] Failed to send to {email}: {exc}")
         return False
 
+def _send_setup_link_email(email, token):
+    """Send Password Setup Link via Gmail SMTP."""
+    gmail_address = os.getenv("GMAIL_ADDRESS")
+    gmail_app_password = os.getenv("GMAIL_APP_PASSWORD")
+
+    if not gmail_address or not gmail_app_password:
+        print("[SETUP EMAIL] GMAIL_ADDRESS or GMAIL_APP_PASSWORD not set — skipping email send")
+        return False
+
+    try:
+        from flask import request
+        # Replace http:// to https:// if deployed (Render often sets headers, but just to be safe)
+        base_url = request.url_root.rstrip('/')
+        if 'onrender.com' in base_url and base_url.startswith('http://'):
+            base_url = base_url.replace('http://', 'https://')
+            
+        setup_url = f"{base_url}/set-password?token={token}"
+        msg = MIMEText(
+            f"Please click the link below to set up your password for OttoMech:\n\n"
+            f"{setup_url}\n\n"
+            f"This link expires in 1 hour.\n"
+            f"If you did not request this, please ignore this email.",
+            "plain",
+        )
+        msg["Subject"] = "OttoMech: Set Your Password"
+        msg["From"] = gmail_address
+        msg["To"] = email
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(gmail_address, gmail_app_password)
+            server.send_message(msg)
+
+        print(f"[SETUP EMAIL] Successfully sent to {email}")
+        return True
+    except Exception as exc:
+        print(f"[SETUP EMAIL] Failed to send to {email}: {exc}")
+        return False
+
 
 @auth_bp.route("/resend-otp", methods=["POST"])
 def resend_otp():
@@ -198,7 +257,7 @@ def resend_otp():
         }), 200
 
     except Exception as exc:
-        return db_error_response(exc)
+        return db_error_response()
 
 
 @auth_bp.route("/register/user", methods=["POST"])
@@ -215,6 +274,9 @@ def register_user():
     email = (data.get("email") or "").strip().lower()
     if not EMAIL_PATTERN.match(email):
         return jsonify({"error": "Invalid email address"}), 400
+
+    if not check_rate_limit(f"register_{email}"):
+        return jsonify({"error": "Too many requests. Please try again later."}), 429, {"Retry-After": "300"}
 
     country = "IN"
 
@@ -272,7 +334,7 @@ def register_user():
         return db_error_response()
 
     session_token = secrets.token_hex(32)
-    _token_store[session_token] = {"role": "user", "id": str(user_id)}
+    _token_store[session_token] = {"role": "user", "id": str(user_id), "expires_at": time.time() + 30*24*3600}
 
     return jsonify({
         "message": "Registration successful",
@@ -303,6 +365,9 @@ def register_mechanic():
     email = (data.get("email") or "").strip().lower()
     if not EMAIL_PATTERN.match(email):
         return jsonify({"error": "Invalid email address"}), 400
+
+    if not check_rate_limit(f"register_{email}"):
+        return jsonify({"error": "Too many requests. Please try again later."}), 429, {"Retry-After": "300"}
 
     country = "IN"
 
@@ -405,6 +470,9 @@ def verify_otp():
             "error": f"Missing required field(s): {', '.join(missing)}",
         }), 400
 
+    if not check_rate_limit(f"verify_otp_{email}"):
+        return jsonify({"error": "Too many verification attempts. Please try again later."}), 429, {"Retry-After": "300"}
+
     try:
         with get_db() as conn:
             with conn.cursor() as cur:
@@ -475,7 +543,7 @@ def verify_otp():
         return db_error_response()
 
     session_token = secrets.token_hex(32)
-    _token_store[session_token] = {"role": role, "id": str(entity_id)}
+    _token_store[session_token] = {"role": role, "id": str(entity_id), "expires_at": time.time() + 30*24*3600}
 
     return jsonify({
         "message": "OTP verified successfully",
@@ -549,7 +617,7 @@ def google_auth():
         return db_error_response()
 
     session_token = secrets.token_hex(32)
-    _token_store[session_token] = {"role": role, "id": str(entity_id)}
+    _token_store[session_token] = {"role": role, "id": str(entity_id), "expires_at": time.time() + 30*24*3600}
 
     return jsonify({
         "message": "Google Login successful",
@@ -608,7 +676,7 @@ def login_user():
         return db_error_response()
 
     session_token = secrets.token_hex(32)
-    _token_store[session_token] = {"role": "user", "id": str(user_id)}
+    _token_store[session_token] = {"role": "user", "id": str(user_id), "expires_at": time.time() + 30*24*3600}
 
     return jsonify({
         "auth_method": "direct",
@@ -683,9 +751,11 @@ def request_setup_link():
     except Exception:
         return db_error_response()
     
-    print(f"[EMAIL SIMULATION] Password setup link for {email}: /set-password?token={token}")
+    email_sent = _send_setup_link_email(email, token)
+    if not email_sent:
+        print(f"[EMAIL SIMULATION] Password setup link for {email}: /set-password?token={token}")
     
-    return jsonify({"message": "Setup link generated. Check terminal for details."}), 200
+    return jsonify({"message": "Setup link generated and sent."}), 200
 
 
 @auth_bp.route("/login/mechanic/request-setup-link", methods=["POST"])
@@ -717,9 +787,11 @@ def request_setup_link_mechanic():
     except Exception:
         return db_error_response()
     
-    print(f"[EMAIL SIMULATION] Mechanic Password setup link for {email}: /set-password?token={token}")
+    email_sent = _send_setup_link_email(email, token)
+    if not email_sent:
+        print(f"[EMAIL SIMULATION] Mechanic Password setup link for {email}: /set-password?token={token}")
     
-    return jsonify({"message": "Setup link generated. Check terminal for details."}), 200
+    return jsonify({"message": "Setup link generated and sent."}), 200
 
 
 @auth_bp.route("/set-password", methods=["POST"])
@@ -791,7 +863,7 @@ def login_user_password():
         return db_error_response()
         
     session_token = secrets.token_hex(32)
-    _token_store[session_token] = {"role": "user", "id": str(user_id)}
+    _token_store[session_token] = {"role": "user", "id": str(user_id), "expires_at": time.time() + 30*24*3600}
     
     return jsonify({
         "message": "Logged in successfully",
@@ -888,42 +960,3 @@ def get_profile():
     return jsonify({"role": role, "profile": profile}), 200
 
 
-@auth_bp.route("/resend-otp", methods=["POST"])
-def resend_otp():
-    """Resend OTP for mechanic login or registration verification."""
-    data = request.get_json(silent=True) or {}
-    email = (data.get("email") or "").strip().lower()
-    role = data.get("role")
-
-    if not email or not EMAIL_PATTERN.match(email):
-        return jsonify({"error": "A valid email address is required"}), 400
-
-    if role not in ("user", "mechanic"):
-        return jsonify({"error": "role must be 'user' or 'mechanic'"}), 400
-
-    # Verify account exists
-    table = "users" if role == "user" else "mechanics"
-    id_col = "user_id" if role == "user" else "mechanic_id"
-
-    try:
-        with get_db() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    f"SELECT {id_col} FROM {table} WHERE email = %s;",
-                    (email,),
-                )
-                if not cur.fetchone():
-                    return jsonify({"error": "No account found for this email"}), 404
-
-                otp_code = _generate_otp()
-                _store_otp(cur, email, otp_code, "login")
-    except Exception:
-        return db_error_response()
-
-    email_sent = _send_otp_email(email, otp_code)
-
-    return jsonify({
-        "message": "OTP resent",
-        "expires_in_seconds": OTP_EXPIRY_SECONDS,
-        "email_delivery": "sent" if email_sent else "failed",
-    }), 200
