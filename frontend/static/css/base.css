@@ -1096,7 +1096,13 @@ img, svg { display: block; }
   object-fit: cover;
 }
 
-.upload-copy { flex: 1; min-width: 0; }
+.upload-copy { 
+  flex: 1; 
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
 
 .upload-copy .upload-title {
   font-size: 0.88rem;
