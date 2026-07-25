@@ -581,7 +581,7 @@ flat_tyre | battery | engine | overheating | other
 
 ## Seed Data
 
-20 mechanics across Lucknow zones — 10 real garages (geocoded) fron justdial + 10 dummy entries. 13 are `is_available=TRUE` by default. Run `python seed.py` to populate (idempotent — safe to run multiple times).
+20 mechanics across Lucknow zones — 10 real garages (geocoded) from justdial + 10 dummy entries. 13 are `is_available=TRUE` by default. Run `python seed.py` to populate (idempotent — safe to run multiple times).
 ---
 
 ## Acknowledgements
